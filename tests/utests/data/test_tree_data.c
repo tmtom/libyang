@@ -18,257 +18,209 @@
 #include "utests.h"
 #include "xpath.h"
 
-#define BUFSIZE 1024
-char logbuf[BUFSIZE] = {0};
-int store = -1; /* negative for infinite logging, positive for limited logging */
+const char *schema_a = "module a {namespace urn:tests:a;prefix a;yang-version 1.1;"
+        "leaf bar {type string;}"
+        "list l1 { key \"a b\"; leaf a {type string;} leaf b {type string;} leaf c {type string;}}"
+        "leaf foo { type string;}"
+        "leaf-list ll { type string;}"
+        "container c {leaf-list x {type string;}}"
+        "anydata any {config false;}"
+        "list l2 {config false;"
+        "    container c{leaf x {type string;} leaf-list d {type string;}}"
+        "}}";
 
-struct ly_ctx *ctx; /* context for tests */
+#define CONTEXT_CREATE \
+                ly_set_log_clb(logger_null, 1);\
+                CONTEXT_CREATE_PATH(NULL);\
+                assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema_a, LYS_IN_YANG, NULL))\
 
-/* set to 0 to printing error messages to stderr instead of checking them in code */
-#define ENABLE_LOGGER_CHECKING 1
 
-#if ENABLE_LOGGER_CHECKING
-static void
-logger(LY_LOG_LEVEL level, const char *msg, const char *path)
-{
-    (void) level; /* unused */
-    if (store) {
-        if (path && path[0]) {
-            snprintf(logbuf, BUFSIZE - 1, "%s %s", msg, path);
-        } else {
-            strncpy(logbuf, msg, BUFSIZE - 1);
-        }
-        if (store > 0) {
-            --store;
-        }
+#define CHECK_PARSE_LYD(INPUT, MODEL) \
+                CHECK_PARSE_LYD_PARAM(INPUT, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, MODEL)
+
+#define CHECK_LYD_STRING(IN_MODEL, TEXT) \
+                CHECK_LYD_STRING_PARAM(IN_MODEL, TEXT, LYD_XML, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK)
+
+#define logbuf_assert(str) \
+    { \
+        const char * err_msg[]  = {str}; \
+        const char * err_path[] = {NULL}; \
+        CHECK_LY_ERROR(CONTEXT_GET, err_msg, err_path); \
     }
-}
-
-#endif
-
-static int
-setup(void **state)
-{
-    (void) state; /* unused */
-
-    const char *schema_a = "module a {namespace urn:tests:a;prefix a;yang-version 1.1;"
-            "leaf bar {type string;}"
-            "list l1 { key \"a b\"; leaf a {type string;} leaf b {type string;} leaf c {type string;}}"
-            "leaf foo { type string;}"
-            "leaf-list ll { type string;}"
-            "container c {leaf-list x {type string;}}"
-            "anydata any {config false;}"
-            "list l2 {config false;"
-            "    container c{leaf x {type string;} leaf-list d {type string;}}"
-            "}}";
-
-#if ENABLE_LOGGER_CHECKING
-    ly_set_log_clb(logger, 1);
-#endif
-
-    assert_int_equal(LY_SUCCESS, ly_ctx_new(NULL, 0, &ctx));
-    assert_int_equal(LY_SUCCESS, lys_parse_mem(ctx, schema_a, LYS_IN_YANG, NULL));
-
-    return 0;
-}
-
-static int
-teardown(void **state)
-{
-#if ENABLE_LOGGER_CHECKING
-    if (*state) {
-        fprintf(stderr, "%s\n", logbuf);
-    }
-#else
-    (void) state; /* unused */
-#endif
-
-    ly_ctx_destroy(ctx, NULL);
-    ctx = NULL;
-
-    return 0;
-}
-
-void
-logbuf_clean(void)
-{
-    logbuf[0] = '\0';
-}
-
-#if ENABLE_LOGGER_CHECKING
-#   define logbuf_assert(str) assert_string_equal(logbuf, str)
-#else
-#   define logbuf_assert(str)
-#endif
 
 static void
 test_compare(void **state)
 {
-    *state = test_compare;
+    (void) state;
 
     struct lyd_node *tree1, *tree2;
 
     const char *data1 = "<l1 xmlns=\"urn:tests:a\"><a>a</a><b>b</b><c>x</c></l1>";
     const char *data2 = "<l1 xmlns=\"urn:tests:a\"><a>a</a><b>b</b><c>y</c></l1>";
 
+    CONTEXT_CREATE;
+
     assert_int_equal(LY_SUCCESS, lyd_compare_single(NULL, NULL, 0));
 
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data1, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data2, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree2));
+    CHECK_PARSE_LYD(data1, tree1);
+    CHECK_PARSE_LYD(data2, tree2);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, 0));
     assert_int_equal(LY_ENOT, lyd_compare_single(tree1, tree2, LYD_COMPARE_FULL_RECURSION));
     assert_int_equal(LY_ENOT, lyd_compare_single(((struct lyd_node_inner *)tree1)->child, tree2, 0));
-    lyd_free_all(tree1);
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree1);
+    CHECK_FREE_LYD(tree2);
 
     data1 = "<l2 xmlns=\"urn:tests:a\"><c><x>a</x></c></l2><l2 xmlns=\"urn:tests:a\"><c><x>b</x></c></l2>";
     data2 = "<l2 xmlns=\"urn:tests:a\"><c><x>b</x></c></l2>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data1, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data2, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree2));
+    CHECK_PARSE_LYD(data1, tree1);
+    CHECK_PARSE_LYD(data2, tree2);
     assert_int_equal(LY_ENOT, lyd_compare_single(tree1->next, tree2->next, 0));
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1->next->next, tree2->next, 0));
-    lyd_free_all(tree1);
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree1);
+    CHECK_FREE_LYD(tree2);
 
     data1 = "<ll xmlns=\"urn:tests:a\">a</ll><ll xmlns=\"urn:tests:a\">b</ll>";
     data2 = "<ll xmlns=\"urn:tests:a\">b</ll>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data1, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data2, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree2));
+    CHECK_PARSE_LYD(data1, tree1);
+    CHECK_PARSE_LYD(data2, tree2);
     assert_int_equal(LY_ENOT, lyd_compare_single(tree1, tree2, 0));
     assert_int_equal(LY_ENOT, lyd_compare_single(NULL, tree2, 0));
     assert_int_equal(LY_ENOT, lyd_compare_single(tree1, NULL, 0));
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1->next, tree2, 0));
-    lyd_free_all(tree1);
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree1);
+    CHECK_FREE_LYD(tree2);
 
     data1 = "<c xmlns=\"urn:tests:a\"><x>x</x></c>";
     data2 = "<c xmlns=\"urn:tests:a\"><x>y</x></c>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data1, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data2, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree2));
+    CHECK_PARSE_LYD(data1, tree1);
+    CHECK_PARSE_LYD(data2, tree2);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, 0));
     assert_int_equal(LY_ENOT, lyd_compare_single(tree1, tree2, LYD_COMPARE_FULL_RECURSION));
-    lyd_free_all(tree1);
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree1);
+    CHECK_FREE_LYD(tree2);
 
     data1 = "<c xmlns=\"urn:tests:a\"><x>x</x></c>";
     data2 = "<c xmlns=\"urn:tests:a\"><x>x</x><x>y</x></c>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data1, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data2, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree2));
+    CHECK_PARSE_LYD(data1, tree1);
+    CHECK_PARSE_LYD(data2, tree2);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, 0));
     assert_int_equal(LY_ENOT, lyd_compare_single(tree1, tree2, LYD_COMPARE_FULL_RECURSION));
-    lyd_free_all(tree1);
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree1);
+    CHECK_FREE_LYD(tree2);
 
     data1 = "<any xmlns=\"urn:tests:a\"><x>x</x></any>";
     data2 = "<any xmlns=\"urn:tests:a\"><x>x</x><x>y</x></any>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data1, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data2, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree2));
+    CHECK_PARSE_LYD(data1, tree1);
+    CHECK_PARSE_LYD(data2, tree2);
     assert_int_equal(LY_ENOT, lyd_compare_single(tree1->next, tree2->next, 0));
-    lyd_free_all(tree1);
+    CHECK_FREE_LYD(tree1);
     data1 = "<any xmlns=\"urn:tests:a\"><x>x</x><x>y</x></any>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data1, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
+    CHECK_PARSE_LYD(data1, tree1);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, 0));
-    lyd_free_all(tree1);
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree1);
+    CHECK_FREE_LYD(tree2);
 
-    *state = NULL;
+    CONTEXT_DESTROY;
 }
 
 static void
 test_dup(void **state)
 {
-    *state = test_dup;
+    (void) state;
 
     struct lyd_node *tree1, *tree2;
     const char *result;
     const char *data = "<l1 xmlns=\"urn:tests:a\"><a>a</a><b>b</b><c>x</c></l1>";
 
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
+    CONTEXT_CREATE;
+    CHECK_PARSE_LYD(data, tree1);
     assert_int_equal(LY_SUCCESS, lyd_dup_single(tree1, NULL, LYD_DUP_RECURSIVE, &tree2));
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, LYD_COMPARE_FULL_RECURSION));
-    lyd_free_all(tree1);
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree1);
+    CHECK_FREE_LYD(tree2);
 
     data = "<l1 xmlns=\"urn:tests:a\"><a>a</a><b>b</b><c>x</c></l1>";
     result = "<l1 xmlns=\"urn:tests:a\"><a>a</a><b>b</b></l1>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
+    CHECK_PARSE_LYD(data, tree1);
     assert_int_equal(LY_SUCCESS, lyd_dup_single(tree1, NULL, 0, &tree2));
-    lyd_free_all(tree1);
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, result, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
+    CHECK_FREE_LYD(tree1);
+    CHECK_PARSE_LYD(result, tree1);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, LYD_COMPARE_FULL_RECURSION));
-    lyd_free_all(tree1);
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree1);
+    CHECK_FREE_LYD(tree2);
 
     data = "<l2 xmlns=\"urn:tests:a\"><c><x>a</x></c></l2><l2 xmlns=\"urn:tests:a\"><c><x>b</x></c></l2>";
     result = "<l2 xmlns=\"urn:tests:a\"><c><x>a</x></c></l2>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
+    CHECK_PARSE_LYD(data, tree1);
     assert_int_equal(LY_SUCCESS, lyd_dup_siblings(tree1, NULL, LYD_DUP_RECURSIVE, &tree2));
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1->next, tree2->next, LYD_COMPARE_FULL_RECURSION));
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree2);
     assert_int_equal(LY_SUCCESS, lyd_dup_single(tree1->next, NULL, LYD_DUP_RECURSIVE, &tree2));
-    lyd_free_all(tree1);
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, result, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
+    CHECK_FREE_LYD(tree1);
+    CHECK_PARSE_LYD(result, tree1);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1->next, tree2, LYD_COMPARE_FULL_RECURSION));
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree2);
 
     assert_int_equal(LY_SUCCESS, lyd_dup_single(tree1->next, NULL, 0, &tree2));
-    lyd_free_all(tree1);
+    CHECK_FREE_LYD(tree1);
     result = "<l2 xmlns=\"urn:tests:a\"/>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, result, LYD_XML, LYD_PARSE_ONLY, 0, &tree1));
+    CHECK_PARSE_LYD_PARAM(result, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, tree1);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, LYD_COMPARE_FULL_RECURSION));
-    lyd_free_all(tree1);
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree1);
+    CHECK_FREE_LYD(tree2);
 
     data = "<any xmlns=\"urn:tests:a\"><c><a>a</a></c></any>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
+    CHECK_PARSE_LYD(data, tree1);
     assert_int_equal(LY_SUCCESS, lyd_dup_single(tree1, NULL, 0, &tree2));
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, LYD_COMPARE_FULL_RECURSION));
-    lyd_free_all(tree1);
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree1);
+    CHECK_FREE_LYD(tree2);
 
     data = "<l2 xmlns=\"urn:tests:a\"><c><x>b</x></c></l2>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
+    CHECK_PARSE_LYD(data, tree1);
     assert_int_equal(LY_SUCCESS, lyd_dup_single(((struct lyd_node_inner *)((struct lyd_node_inner *)tree1->next)->child)->child, NULL,
             LYD_DUP_WITH_PARENTS, &tree2));
-    assert_string_equal("x", tree2->schema->name);
-    assert_non_null(tree2->parent);
+    int unsigned flag = LYS_CONFIG_R | LYS_SET_ENUM;
+
+    CHECK_LYSC_NODE(tree2->schema, NULL, 0, flag, 1, "x", 1, LYS_LEAF, 1, 0, NULL, 0);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1->next, (struct lyd_node *)tree2->parent->parent,
             LYD_COMPARE_FULL_RECURSION));
-    lyd_free_all(tree1);
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree1);
+    CHECK_FREE_LYD(tree2);
 
     data = "<l1 xmlns=\"urn:tests:a\"><a>a</a><b>b</b><c>c</c></l1>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
+    CHECK_PARSE_LYD(data, tree1);
     assert_int_equal(LY_SUCCESS, lyd_dup_single(((struct lyd_node_inner *)tree1)->child->prev, NULL,
             LYD_DUP_WITH_PARENTS, &tree2));
-    assert_string_equal("c", tree2->schema->name);
-    assert_non_null(tree2->parent);
+    flag = LYS_CONFIG_W | LYS_SET_ENUM;
+    CHECK_LYSC_NODE(tree2->schema, NULL, 0, flag, 1, "c", 0, LYS_LEAF, 1, 0, NULL, 0);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, (struct lyd_node *)tree2->parent, LYD_COMPARE_FULL_RECURSION));
-    lyd_free_all(tree1);
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree1);
+    CHECK_FREE_LYD(tree2);
 
     data = "<l2 xmlns=\"urn:tests:a\"><c><x>b</x></c></l2>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
+    CHECK_PARSE_LYD(data, tree1);
     assert_int_equal(LY_SUCCESS, lyd_dup_single(tree1->next, NULL, 0, &tree2));
     assert_int_equal(LY_SUCCESS, lyd_dup_single(((struct lyd_node_inner *)((struct lyd_node_inner *)tree1->next)->child)->child,
             (struct lyd_node_inner *)tree2, LYD_DUP_WITH_PARENTS, NULL));
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1->next, tree2, LYD_COMPARE_FULL_RECURSION));
-    lyd_free_all(tree1);
-    lyd_free_all(tree2);
+    CHECK_FREE_LYD(tree1);
+    CHECK_FREE_LYD(tree2);
 
     /* invalid */
     data = "<l1 xmlns=\"urn:tests:a\"><a>a</a><b>b</b><c>c</c></l1><l2 xmlns=\"urn:tests:a\"><c><x>b</x></c></l2>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree1));
+    CHECK_PARSE_LYD(data, tree1);
     assert_int_equal(LY_EINVAL, lyd_dup_single(((struct lyd_node_inner *)tree1)->child->prev,
             (struct lyd_node_inner *)tree1->next, LYD_DUP_WITH_PARENTS, NULL));
-    lyd_free_all(tree1);
+    CHECK_FREE_LYD(tree1);
 
-    *state = NULL;
+    CONTEXT_DESTROY;
 }
 
 static void
 test_target(void **state)
 {
+    (void) state;
     *state = test_target;
 
     const struct lyd_node_term *term;
@@ -289,37 +241,43 @@ test_target(void **state)
             "<l2 xmlns=\"urn:tests:a\"><c>"
             "</c></l2>";
 
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree));
-    assert_int_equal(LY_SUCCESS, ly_path_parse(ctx, NULL, path_str, strlen(path_str), LY_PATH_BEGIN_EITHER, LY_PATH_LREF_FALSE,
+    CONTEXT_CREATE;
+
+    CHECK_PARSE_LYD(data, tree);
+    assert_int_equal(LY_SUCCESS, ly_path_parse(CONTEXT_GET, NULL, path_str, strlen(path_str), LY_PATH_BEGIN_EITHER, LY_PATH_LREF_FALSE,
             LY_PATH_PREFIX_OPTIONAL, LY_PATH_PRED_SIMPLE, &exp));
-    assert_int_equal(LY_SUCCESS, ly_path_compile(ctx, NULL, NULL, exp, LY_PATH_LREF_FALSE, LY_PATH_OPER_INPUT,
+    assert_int_equal(LY_SUCCESS, ly_path_compile(CONTEXT_GET, NULL, NULL, exp, LY_PATH_LREF_FALSE, LY_PATH_OPER_INPUT,
             LY_PATH_TARGET_SINGLE, LY_PREF_JSON, NULL, &path));
     term = lyd_target(path, tree);
 
-    assert_string_equal(term->schema->name, "d");
+    const int unsigned flag = LYS_CONFIG_R | LYS_SET_ENUM | LYS_ORDBY_SYSTEM;
+
+    CHECK_LYSC_NODE(term->schema, NULL, 0, flag, 1, "d", 0, LYS_LEAFLIST, 1, 0, NULL, 0);
     assert_string_equal(LYD_CANON_VALUE(term), "b");
     assert_string_equal(LYD_CANON_VALUE(term->prev), "b");
 
-    lyd_free_all(tree);
-    ly_path_free(ctx, path);
-    lyxp_expr_free(ctx, exp);
+    CHECK_FREE_LYD(tree);
+    ly_path_free(CONTEXT_GET, path);
+    lyxp_expr_free(CONTEXT_GET, exp);
 
-    *state = NULL;
+    CONTEXT_DESTROY;
 }
 
 static void
 test_list_pos(void **state)
 {
-    *state = test_list_pos;
+    (void) state;
 
     const char *data;
     struct lyd_node *tree;
+
+    CONTEXT_CREATE;
 
     data = "<bar xmlns=\"urn:tests:a\">test</bar>"
             "<l1 xmlns=\"urn:tests:a\"><a>one</a><b>one</b></l1>"
             "<l1 xmlns=\"urn:tests:a\"><a>two</a><b>two</b></l1>"
             "<foo xmlns=\"urn:tests:a\">test</foo>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree));
+    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(CONTEXT_GET, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree));
     assert_int_equal(0, lyd_list_pos(tree));
     assert_int_equal(1, lyd_list_pos(tree->next));
     assert_int_equal(2, lyd_list_pos(tree->next->next));
@@ -329,7 +287,7 @@ test_list_pos(void **state)
     data = "<ll xmlns=\"urn:tests:a\">one</ll>"
             "<ll xmlns=\"urn:tests:a\">two</ll>"
             "<ll xmlns=\"urn:tests:a\">three</ll>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree));
+    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(CONTEXT_GET, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree));
     assert_int_equal(1, lyd_list_pos(tree));
     assert_int_equal(2, lyd_list_pos(tree->next));
     assert_int_equal(3, lyd_list_pos(tree->next->next));
@@ -341,7 +299,7 @@ test_list_pos(void **state)
             "<l1 xmlns=\"urn:tests:a\"><a>two</a><b>two</b></l1>"
             "<ll xmlns=\"urn:tests:a\">three</ll>"
             "<l1 xmlns=\"urn:tests:a\"><a>three</a><b>three</b></l1>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree));
+    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(CONTEXT_GET, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree));
     assert_string_equal("l1", tree->schema->name);
     assert_int_equal(1, lyd_list_pos(tree));
     assert_int_equal(2, lyd_list_pos(tree->next));
@@ -352,22 +310,24 @@ test_list_pos(void **state)
     assert_int_equal(3, lyd_list_pos(tree->next->next->next->next->next));
     lyd_free_all(tree);
 
-    *state = NULL;
+    CONTEXT_DESTROY;
 }
 
 static void
 test_first_sibling(void **state)
 {
-    *state = test_first_sibling;
+    (void) state;
 
     const char *data;
     struct lyd_node *tree;
     struct lyd_node_inner *parent;
 
+    CONTEXT_CREATE;
+
     data = "<bar xmlns=\"urn:tests:a\">test</bar>"
             "<l1 xmlns=\"urn:tests:a\"><a>one</a><b>one</b><c>one</c></l1>"
             "<foo xmlns=\"urn:tests:a\">test</foo>";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree));
+    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(CONTEXT_GET, data, LYD_XML, 0, LYD_VALIDATE_PRESENT, &tree));
     assert_ptr_equal(tree, lyd_first_sibling(tree->next));
     assert_ptr_equal(tree, lyd_first_sibling(tree));
     assert_ptr_equal(tree, lyd_first_sibling(tree->prev));
@@ -378,18 +338,18 @@ test_first_sibling(void **state)
     assert_ptr_equal(parent->child, lyd_first_sibling(parent->child->prev));
     lyd_free_all(tree);
 
-    *state = NULL;
+    CONTEXT_DESTROY;
 }
 
 int
 main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test_setup_teardown(test_compare, setup, teardown),
-        cmocka_unit_test_setup_teardown(test_dup, setup, teardown),
-        cmocka_unit_test_setup_teardown(test_target, setup, teardown),
-        cmocka_unit_test_setup_teardown(test_list_pos, setup, teardown),
-        cmocka_unit_test_setup_teardown(test_first_sibling, setup, teardown),
+        cmocka_unit_test(test_compare),
+        cmocka_unit_test(test_dup),
+        cmocka_unit_test(test_target),
+        cmocka_unit_test(test_list_pos),
+        cmocka_unit_test(test_first_sibling),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

@@ -134,7 +134,6 @@ setup(void **state)
             "    type string;\n"
             "  }\n"
             "}";
-
     const struct lys_module *mod;
     const char *feats[] = {"feat1", NULL};
     struct ly_in *in;

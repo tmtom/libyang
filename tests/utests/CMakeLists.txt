@@ -3,23 +3,23 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 set(format_sources
     ${format_sources}
-    ${CMAKE_CURRENT_SOURCE_DIR}/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/basic/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/data/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/extensions/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/schema/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/schema/*.h
     PARENT_SCOPE)
 
-ly_add_utest(NAME common WRAP "-Wl,--wrap=realloc" SOURCES test_common.c)
-ly_add_utest(NAME set SOURCES test_set.c)
-ly_add_utest(NAME hash_table SOURCES test_hash_table.c)
-ly_add_utest(NAME inout SOURCES test_inout.c)
-ly_add_utest(NAME context SOURCES test_context.c)
-ly_add_utest(NAME xml SOURCES test_xml.c)
-ly_add_utest(NAME json SOURCES test_json.c)
-ly_add_utest(NAME xpath SOURCES test_xpath.c)
-ly_add_utest(NAME yanglib SOURCES test_yanglib.c)
+ly_add_utest(NAME common WRAP "-Wl,--wrap=realloc" SOURCES basic/test_common.c)
+ly_add_utest(NAME set SOURCES basic/test_set.c)
+ly_add_utest(NAME hash_table SOURCES basic/test_hash_table.c)
+ly_add_utest(NAME inout SOURCES basic/test_inout.c)
+ly_add_utest(NAME context SOURCES basic/test_context.c)
+ly_add_utest(NAME xml SOURCES basic/test_xml.c)
+ly_add_utest(NAME json SOURCES basic/test_json.c)
+ly_add_utest(NAME xpath SOURCES basic/test_xpath.c)
+ly_add_utest(NAME yanglib SOURCES basic/test_yanglib.c)
 ly_add_utest(NAME schema SOURCES schema/test_schema.c schema/test_schema_common.c schema/test_schema_stmts.c)
 ly_add_utest(NAME parser_yang SOURCES schema/test_parser_yang.c)
 ly_add_utest(NAME parser_yin SOURCES schema/test_parser_yin.c)

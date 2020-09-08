@@ -12,10 +12,9 @@
  *     https://opensource.org/licenses/BSD-3-Clause
  */
 
-#include "utests.h"
-
 #include "libyang.h"
 #include "plugins_exts_metadata.h"
+#include "utests.h"
 
 #define BUFSIZE 1024
 char logbuf[BUFSIZE] = {0};

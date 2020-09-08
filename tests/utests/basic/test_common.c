@@ -12,9 +12,8 @@
  *     https://opensource.org/licenses/BSD-3-Clause
  */
 
-#include <stdlib.h>
-
 #include "common.h"
+
 #include "utests.h"
 
 #define BUFSIZE 1024

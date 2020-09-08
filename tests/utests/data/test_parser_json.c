@@ -22,155 +22,96 @@
 #include "tree_schema.h"
 #include "utests.h"
 
-#define BUFSIZE 1024
-char logbuf[BUFSIZE] = {0};
-int store = -1; /* negative for infinite logging, positive for limited logging */
+#define CONTEXT_CREATE \
+                ly_set_log_clb(logger_null, 1);\
+                CONTEXT_CREATE_PATH(TESTS_DIR_MODULES_YANG);\
+                {\
+                    const struct lys_module *mod;\
+                    assert_non_null((mod = ly_ctx_load_module(CONTEXT_GET, "ietf-netconf", "2011-06-01", feats)));\
+                }\
+                assert_non_null(ly_ctx_load_module(CONTEXT_GET, "ietf-netconf-with-defaults", "2011-06-01", NULL));\
+                assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema_a, LYS_IN_YANG, NULL))\
 
-struct ly_ctx *ctx; /* context for tests */
 
-/* set to 0 to printing error messages to stderr instead of checking them in code */
-#define ENABLE_LOGGER_CHECKING 1
+#define CHECK_PARSE_LYD(INPUT, PARSE_OPTION, MODEL) \
+                CHECK_PARSE_LYD_PARAM(INPUT, LYD_JSON, PARSE_OPTION, LYD_VALIDATE_PRESENT, LY_SUCCESS, MODEL)
 
-#if ENABLE_LOGGER_CHECKING
-static void
-logger(LY_LOG_LEVEL level, const char *msg, const char *path)
-{
-    (void) level; /* unused */
-    if (store) {
-        if (path && path[0]) {
-            snprintf(logbuf, BUFSIZE - 1, "%s %s", msg, path);
-        } else {
-            strncpy(logbuf, msg, BUFSIZE - 1);
-        }
-        if (store > 0) {
-            --store;
-        }
-    }
-}
+#define PARSER_CHECK_ERROR(INPUT, PARSE_OPTION, MODEL, RET_VAL, ERR_MESSAGE, ERR_PATH) \
+                assert_int_equal(RET_VAL, lyd_parse_data_mem(CONTEXT_GET, data, LYD_JSON, PARSE_OPTION, LYD_VALIDATE_PRESENT, &MODEL));\
+                CHECK_CTX_ERROR(CONTEXT_GET, ERR_MESSAGE, ERR_PATH);\
+                assert_null(MODEL)
 
-#endif
+#define CHECK_LYD_STRING(IN_MODEL, TEXT) \
+                CHECK_LYD_STRING_PARAM(IN_MODEL, TEXT, LYD_JSON, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS)
 
-static int
-setup(void **state)
-{
-    (void) state; /* unused */
-
-    const char *schema_a = "module a {namespace urn:tests:a;prefix a;yang-version 1.1; import ietf-yang-metadata {prefix md;}"
-            "md:annotation hint { type int8;}"
-            "list l1 { key \"a b c\"; leaf a {type string;} leaf b {type string;} leaf c {type int16;} leaf d {type string;}}"
-            "leaf foo { type string;}"
-            "container c {"
-            "    leaf x {type string;}"
-            "    action act { input { leaf al {type string;} } output { leaf al {type uint8;} } }"
-            "    notification n1 { leaf nl {type string;} }"
-            "}"
-            "container cp {presence \"container switch\"; leaf y {type string;} leaf z {type int8;}}"
-            "anydata any {config false;}"
-            "leaf-list ll1 { type uint8; }"
-            "leaf foo2 { type string; default \"default-val\"; }"
-            "leaf foo3 { type uint32; }"
-            "notification n2;}";
-    const struct lys_module *mod;
-    const char *feats[] = {"writable-running", NULL};
-
-#if ENABLE_LOGGER_CHECKING
-    ly_set_log_clb(logger, 1);
-#endif
-
-    assert_int_equal(LY_SUCCESS, ly_ctx_new(TESTS_DIR_MODULES_YANG, 0, &ctx));
-    assert_non_null((mod = ly_ctx_load_module(ctx, "ietf-netconf", "2011-06-01", feats)));
-    assert_non_null(ly_ctx_load_module(ctx, "ietf-netconf-with-defaults", "2011-06-01", NULL));
-    assert_int_equal(LY_SUCCESS, lys_parse_mem(ctx, schema_a, LYS_IN_YANG, NULL));
-
-    return 0;
-}
-
-static int
-teardown(void **state)
-{
-#if ENABLE_LOGGER_CHECKING
-    if (*state) {
-        fprintf(stderr, "%s\n", logbuf);
-    }
-#else
-    (void) state; /* unused */
-#endif
-
-    ly_ctx_destroy(ctx, NULL);
-    ctx = NULL;
-
-    return 0;
-}
-
-void
-logbuf_clean(void)
-{
-    logbuf[0] = '\0';
-}
-
-#if ENABLE_LOGGER_CHECKING
-#   define logbuf_assert(str) assert_string_equal(logbuf, str)
-#else
-#   define logbuf_assert(str)
-#endif
+const char *schema_a = "module a {namespace urn:tests:a;prefix a;yang-version 1.1; import ietf-yang-metadata {prefix md;}"
+        "md:annotation hint { type int8;}"
+        "list l1 { key \"a b c\"; leaf a {type string;} leaf b {type string;} leaf c {type int16;} leaf d {type string;}}"
+        "leaf foo { type string;}"
+        "container c {"
+        "    leaf x {type string;}"
+        "    action act { input { leaf al {type string;} } output { leaf al {type uint8;} } }"
+        "    notification n1 { leaf nl {type string;} }"
+        "}"
+        "container cp {presence \"container switch\"; leaf y {type string;} leaf z {type int8;}}"
+        "anydata any {config false;}"
+        "leaf-list ll1 { type uint8; }"
+        "leaf foo2 { type string; default \"default-val\"; }"
+        "leaf foo3 { type uint32; }"
+        "notification n2;}";
+const char *feats[] = {"writable-running", NULL};
 
 static void
 test_leaf(void **state)
 {
-    *state = test_leaf;
-
+    (void) state;
+    char *err_path[1];
+    char *err_msg[1];
     const char *data = "{\"a:foo\":\"foo value\"}";
     struct lyd_node *tree;
     struct lyd_node_term *leaf;
+    int unsigned flag;
 
-    char *printed;
-    struct ly_out *out;
+    CONTEXT_CREATE;
 
-    assert_int_equal(LY_SUCCESS, ly_out_new_memory(&printed, 0, &out));
-
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    assert_non_null(tree);
-    assert_int_equal(LYS_LEAF, tree->schema->nodetype);
-    assert_string_equal("foo", tree->schema->name);
+    CHECK_PARSE_LYD(data, 0,  tree);
+    flag = LYS_CONFIG_W | LYS_STATUS_CURR;
+    CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "foo", 1, LYS_LEAF, 0, 0, NULL, 0);
     leaf = (struct lyd_node_term *)tree;
-    assert_string_equal("foo value", leaf->value.canonical);
+    CHECK_LYD_VALUE(leaf->value, STRING, "foo value");
 
-    assert_int_equal(LYS_LEAF, tree->next->next->schema->nodetype);
-    assert_string_equal("foo2", tree->next->next->schema->name);
+    flag = 0x205;
+    CHECK_LYSC_NODE(tree->next->next->schema, NULL, 0, flag, 1, "foo2", 1, LYS_LEAF, 0, 0, NULL, 0);
     leaf = (struct lyd_node_term *)tree->next->next;
-    assert_string_equal("default-val", leaf->value.canonical);
+
+    CHECK_LYD_VALUE(leaf->value, STRING, "default-val");
     assert_true(leaf->flags & LYD_DEFAULT);
 
-    lyd_print_tree(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(printed, data);
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
     /* make foo2 explicit */
     data = "{\"a:foo2\":\"default-val\"}";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
+    CHECK_PARSE_LYD(data, 0, tree);
     assert_non_null(tree);
     tree = tree->next;
-    assert_int_equal(LYS_LEAF, tree->schema->nodetype);
-    assert_string_equal("foo2", tree->schema->name);
+    flag = 0x205;
+    CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "foo2", 1, LYS_LEAF, 0, 0, NULL, 0);
     leaf = (struct lyd_node_term *)tree;
-    assert_string_equal("default-val", leaf->value.canonical);
+    CHECK_LYD_VALUE(leaf->value, STRING, "default-val");
     assert_false(leaf->flags & LYD_DEFAULT);
 
-    lyd_print_tree(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(printed, data);
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
     /* parse foo2 but make it implicit */
     data = "{\"a:foo2\":\"default-val\",\"@a:foo2\":{\"ietf-netconf-with-defaults:default\":true}}";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
+    CHECK_PARSE_LYD(data, 0, tree);
     assert_non_null(tree);
     tree = tree->next;
-    assert_int_equal(LYS_LEAF, tree->schema->nodetype);
-    assert_string_equal("foo2", tree->schema->name);
+    CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "foo2", 1, LYS_LEAF, 0, 0, NULL, 0);
     leaf = (struct lyd_node_term *)tree;
-    assert_string_equal("default-val", leaf->value.canonical);
+    CHECK_LYD_VALUE(leaf->value, STRING, "default-val");
     assert_true(leaf->flags & LYD_DEFAULT);
 
     /* TODO default values
@@ -178,465 +119,376 @@ test_leaf(void **state)
     assert_string_equal(printed, data);
     ly_out_reset(out);
     */
-    lyd_free_all(tree);
+    CHECK_FREE_LYD(tree);
 
     /* multiple meatadata hint and unknown metadata xxx supposed to be skipped since it is from missing schema */
     data = "{\"@a:foo\":{\"a:hint\":1,\"a:hint\":2,\"x:xxx\":{\"value\":\"/x:no/x:yes\"}},\"a:foo\":\"xxx\"}";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    assert_non_null(tree);
-    assert_int_equal(LYS_LEAF, tree->schema->nodetype);
-    assert_string_equal("foo", tree->schema->name);
-    assert_non_null(tree->meta);
-    assert_string_equal("hint", tree->meta->name);
-    assert_int_equal(LY_TYPE_INT8, tree->meta->value.realtype->basetype);
-    assert_string_equal("1", tree->meta->value.canonical);
-    assert_int_equal(1, tree->meta->value.int8);
-    assert_ptr_equal(tree, tree->meta->parent);
-    assert_non_null(tree->meta->next);
-    assert_string_equal("hint", tree->meta->next->name);
-    assert_int_equal(LY_TYPE_INT8, tree->meta->next->value.realtype->basetype);
-    assert_string_equal("2", tree->meta->next->value.canonical);
-    assert_int_equal(2, tree->meta->next->value.int8);
-    assert_ptr_equal(tree, tree->meta->next->parent);
+    CHECK_PARSE_LYD(data, 0, tree);
+    flag = 0x5;
+    CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "foo", 1, LYS_LEAF, 0, 0, NULL, 0);
+    CHECK_LYD_META(tree->meta, 1, "hint", 1, 1,  INT8, "1", 1);
+    CHECK_LYD_META(tree->meta->next, 1, "hint", 0, 1,  INT8, "2", 2);
     assert_null(tree->meta->next->next);
 
-    lyd_print_tree(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(printed, "{\"a:foo\":\"xxx\",\"@a:foo\":{\"a:hint\":1,\"a:hint\":2}}");
-    ly_out_free(out, NULL, 1);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, "{\"a:foo\":\"xxx\",\"@a:foo\":{\"a:hint\":1,\"a:hint\":2}}");
+    CHECK_FREE_LYD(tree);
 
-    assert_int_equal(LY_EVALID, lyd_parse_data_mem(ctx, data, LYD_JSON, LYD_PARSE_STRICT, LYD_VALIDATE_PRESENT, &tree));
-    logbuf_assert("Unknown (or not implemented) YANG module \"x\" for metadata \"x:xxx\". /a:foo");
+    err_msg[0] = "Unknown (or not implemented) YANG module \"x\" for metadata \"x:xxx\".";
+    err_path[0] = "/a:foo";
+    PARSER_CHECK_ERROR(data, LYD_PARSE_STRICT, tree, LY_EVALID, err_msg, err_path);
 
     /* missing referenced metadata node */
     data = "{\"@a:foo\" : { \"a:hint\" : 1 }}";
-    assert_int_equal(LY_EVALID, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    logbuf_assert("Missing JSON data instance to be coupled with @a:foo metadata. /");
+    err_msg[0] = "Missing JSON data instance to be coupled with @a:foo metadata.";
+    err_path[0] = "/";
+    PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     /* missing namespace for meatadata*/
     data = "{\"a:foo\" : \"value\", \"@a:foo\" : { \"hint\" : 1 }}";
-    assert_int_equal(LY_EVALID, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    logbuf_assert("Metadata in JSON must be namespace-qualified, missing prefix for \"hint\". /a:foo");
+    err_msg[0] = "Metadata in JSON must be namespace-qualified, missing prefix for \"hint\".";
+    err_path[0] = "/a:foo";
+    PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
-    *state = NULL;
+    CONTEXT_DESTROY;
 }
 
 static void
 test_leaflist(void **state)
 {
-    *state = test_leaflist;
+    (void) state;
 
     const char *data = "{\"a:ll1\":[10,11]}";
     struct lyd_node *tree;
     struct lyd_node_term *ll;
+    int unsigned flag;
 
-    char *printed;
-    struct ly_out *out;
+    CONTEXT_CREATE;
 
-    assert_int_equal(LY_SUCCESS, ly_out_new_memory(&printed, 0, &out));
-
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
+    CHECK_PARSE_LYD(data, 0, tree);
     assert_non_null(tree);
     tree = tree->next;
-    assert_int_equal(LYS_LEAFLIST, tree->schema->nodetype);
-    assert_string_equal("ll1", tree->schema->name);
+    flag = LYS_CONFIG_W | LYS_STATUS_CURR | LYS_SET_RANGE;
+    CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "ll1", 1, LYS_LEAFLIST, 0, 0, NULL, 0);
     ll = (struct lyd_node_term *)tree;
-    assert_string_equal("10", ll->value.canonical);
+    CHECK_LYD_VALUE(ll->value, UINT8, "10", 10);
 
     assert_non_null(tree->next);
-    assert_int_equal(LYS_LEAFLIST, tree->next->schema->nodetype);
-    assert_string_equal("ll1", tree->next->schema->name);
+    flag = 0x85;
+    CHECK_LYSC_NODE(tree->next->schema, NULL, 0, flag, 1, "ll1", 1, LYS_LEAFLIST, 0, 0, NULL, 0);
     ll = (struct lyd_node_term *)tree->next;
-    assert_string_equal("11", ll->value.canonical);
+    CHECK_LYD_VALUE(ll->value, UINT8, "11", 11);
 
-    lyd_print_all(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(printed, data);
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
     /* simple metadata */
     data = "{\"a:ll1\":[10,11],\"@a:ll1\":[null,{\"a:hint\":2}]}";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
+    CHECK_PARSE_LYD(data, 0, tree);
     assert_non_null(tree);
     tree = tree->next;
-    assert_int_equal(LYS_LEAFLIST, tree->schema->nodetype);
-    assert_string_equal("ll1", tree->schema->name);
+    flag = 0x85;
+    CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "ll1", 1, LYS_LEAFLIST, 0, 0, NULL, 0);
     ll = (struct lyd_node_term *)tree;
-    assert_string_equal("10", ll->value.canonical);
+    CHECK_LYD_VALUE(ll->value, UINT8, "10", 10);
     assert_null(ll->meta);
 
     assert_non_null(tree->next);
-    assert_int_equal(LYS_LEAFLIST, tree->next->schema->nodetype);
-    assert_string_equal("ll1", tree->next->schema->name);
+    CHECK_LYSC_NODE(tree->next->schema, NULL, 0, flag, 1, "ll1", 1, LYS_LEAFLIST, 0, 0, NULL, 0);
     ll = (struct lyd_node_term *)tree->next;
-    assert_string_equal("11", ll->value.canonical);
-    assert_non_null(ll->meta);
-    assert_string_equal("2", ll->meta->value.canonical);
+    CHECK_LYD_VALUE(ll->value, UINT8, "11", 11);
+    CHECK_LYD_META(ll->meta, 1, "hint", 0, 1,  INT8, "2", 2);
     assert_null(ll->meta->next);
 
-    lyd_print_all(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(printed, data);
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
     /* multiple meatadata hint and unknown metadata xxx supposed to be skipped since it is from missing schema */
     data = "{\"@a:ll1\" : [{\"a:hint\" : 1, \"x:xxx\" :  { \"value\" : \"/x:no/x:yes\" }, \"a:hint\" : 10},null,{\"a:hint\" : 3}], \"a:ll1\" : [1,2,3]}";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
+    CHECK_PARSE_LYD(data, 0, tree);
     assert_non_null(tree);
     tree = tree->next;
-    assert_int_equal(LYS_LEAFLIST, tree->schema->nodetype);
-    assert_string_equal("ll1", tree->schema->name);
+    CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "ll1", 1, LYS_LEAFLIST, 0, 0, NULL, 0);
     ll = (struct lyd_node_term *)tree;
-    assert_string_equal("1", ll->value.canonical);
-    assert_non_null(ll->meta);
-    assert_string_equal("hint", ll->meta->name);
-    assert_int_equal(LY_TYPE_INT8, ll->meta->value.realtype->basetype);
-    assert_string_equal("1", ll->meta->value.canonical);
-    assert_int_equal(1, ll->meta->value.int8);
-    assert_ptr_equal(ll, ll->meta->parent);
-    assert_non_null(ll->meta->next);
-    assert_string_equal("hint", ll->meta->next->name);
-    assert_int_equal(LY_TYPE_INT8, ll->meta->next->value.realtype->basetype);
-    assert_string_equal("10", ll->meta->next->value.canonical);
-    assert_int_equal(10, ll->meta->next->value.int8);
-    assert_ptr_equal(ll, ll->meta->next->parent);
-    assert_null(ll->meta->next->next);
+    CHECK_LYD_VALUE(ll->value, UINT8, "1", 1);
+    CHECK_LYD_META(ll->meta, 1, "hint", 1, 1,  INT8, "1", 1);
+    CHECK_LYD_META(ll->meta->next, 1, "hint", 0, 1,  INT8, "10", 10);
 
     assert_non_null(tree->next);
-    assert_int_equal(LYS_LEAFLIST, tree->next->schema->nodetype);
-    assert_string_equal("ll1", tree->next->schema->name);
+    CHECK_LYSC_NODE(tree->next->schema, NULL, 0, flag, 1, "ll1", 1, LYS_LEAFLIST, 0, 0, NULL, 0);
     ll = (struct lyd_node_term *)tree->next;
-    assert_string_equal("2", ll->value.canonical);
+    CHECK_LYD_VALUE(ll->value, UINT8, "2", 2);
     assert_null(ll->meta);
 
     assert_non_null(tree->next->next);
-    assert_int_equal(LYS_LEAFLIST, tree->next->next->schema->nodetype);
-    assert_string_equal("ll1", tree->next->next->schema->name);
+    CHECK_LYSC_NODE(tree->next->next->schema, NULL, 0, flag, 1, "ll1", 1, LYS_LEAFLIST, 0, 0, NULL, 0);
     ll = (struct lyd_node_term *)tree->next->next;
-    assert_string_equal("3", ll->value.canonical);
-    assert_non_null(ll->meta);
-    assert_string_equal("hint", ll->meta->name);
-    assert_int_equal(LY_TYPE_INT8, ll->meta->value.realtype->basetype);
-    assert_string_equal("3", ll->meta->value.canonical);
-    assert_int_equal(3, ll->meta->value.int8);
-    assert_ptr_equal(ll, ll->meta->parent);
+    CHECK_LYD_VALUE(ll->value, UINT8, "3", 3);
+    CHECK_LYD_META(ll->meta, 1, "hint", 0, 1,  INT8, "3", 3);
     assert_null(ll->meta->next);
 
-    lyd_print_all(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(printed, "{\"a:ll1\":[1,2,3],\"@a:ll1\":[{\"a:hint\":1,\"a:hint\":10},null,{\"a:hint\":3}]}");
-    ly_out_free(out, NULL, 1);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, "{\"a:ll1\":[1,2,3],\"@a:ll1\":[{\"a:hint\":1,\"a:hint\":10},null,{\"a:hint\":3}]}");
+    CHECK_FREE_LYD(tree);
 
     /* missing referenced metadata node */
+    char *err_path[1];
+    char *err_msg[1];
+
     data = "{\"@a:ll1\":[{\"a:hint\":1}]}";
-    assert_int_equal(LY_EVALID, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    logbuf_assert("Missing JSON data instance to be coupled with @a:ll1 metadata. /");
+    err_msg[0] = "Missing JSON data instance to be coupled with @a:ll1 metadata.";
+    err_path[0] = "/";
+    PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     data = "{\"a:ll1\":[1],\"@a:ll1\":[{\"a:hint\":1},{\"a:hint\":2}]}";
-    assert_int_equal(LY_EVALID, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    logbuf_assert("Missing JSON data instance no. 2 of a:ll1 to be coupled with metadata. /");
+    err_msg[0] = "Missing JSON data instance no. 2 of a:ll1 to be coupled with metadata.";
+    err_path[0] = "/";
+    PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     data = "{\"@a:ll1\":[{\"a:hint\":1},{\"a:hint\":2},{\"a:hint\":3}],\"a:ll1\" : [1, 2]}";
-    assert_int_equal(LY_EVALID, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    logbuf_assert("Missing 3rd JSON data instance to be coupled with @a:ll1 metadata. /");
+    err_msg[0] = "Missing 3rd JSON data instance to be coupled with @a:ll1 metadata.";
+    err_path[0] = "/";
+    PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
-    *state = NULL;
+    CONTEXT_DESTROY;
 }
 
 static void
 test_anydata(void **state)
 {
-    *state = test_anydata;
+    (void) state;
 
     const char *data;
-    char *str;
     struct lyd_node *tree;
+    int unsigned flag;
 
-    struct ly_out *out;
-
-    assert_int_equal(LY_SUCCESS, ly_out_new_memory(&str, 0, &out));
+    CONTEXT_CREATE;
 
     data = "{\"a:any\":{\"x:element1\":{\"element2\":\"/a:some/a:path\",\"list\":[{},{\"key\":\"a\"}]}}}";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
+    CHECK_PARSE_LYD(data, 0, tree);
     assert_non_null(tree);
     tree = tree->next;
-    assert_int_equal(LYS_ANYDATA, tree->schema->nodetype);
-    assert_string_equal("any", tree->schema->name);
+    flag = LYS_SET_ENUM | LYS_CONFIG_R | LYS_YIN_ARGUMENT;
+    CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "any", 1, LYS_ANYDATA, 0, 0, NULL, 0);
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
-    lyd_print_tree(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(str, data);
-    ly_out_reset(out);
-
-    lyd_free_all(tree);
-    ly_out_free(out, NULL, 1);
-
-    *state = NULL;
+    CONTEXT_DESTROY;
 }
 
 static void
 test_list(void **state)
 {
-    *state = test_list;
+    (void) state;
 
     const char *data = "{\"a:l1\":[{\"a\":\"one\",\"b\":\"one\",\"c\":1}]}";
     struct lyd_node *tree, *iter;
     struct lyd_node_inner *list;
     struct lyd_node_term *leaf;
+    int unsigned flag;
 
-    char *printed;
-    struct ly_out *out;
-
-    assert_int_equal(LY_SUCCESS, ly_out_new_memory(&printed, 0, &out));
+    CONTEXT_CREATE;
 
     /* check hashes */
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    assert_non_null(tree);
-    assert_int_equal(LYS_LIST, tree->schema->nodetype);
-    assert_string_equal("l1", tree->schema->name);
+    CHECK_PARSE_LYD(data, 0, tree);
+    flag = LYS_CONFIG_W | LYS_STATUS_CURR | LYS_SET_RANGE;
+    CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "l1", 1, LYS_LIST, 0, 0, NULL, 0);
     list = (struct lyd_node_inner *)tree;
     LY_LIST_FOR(list->child, iter) {
         assert_int_not_equal(0, iter->hash);
     }
 
-    lyd_print_all(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(printed, data);
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
     /* missing keys */
+    char *err_path[1];
+    char *err_msg[1];
+
     data = "{ \"a:l1\": [ {\"c\" : 1, \"b\" : \"b\"}]}";
-    assert_int_equal(LY_EVALID, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    logbuf_assert("List instance is missing its key \"a\". /a:l1[b='b'][c='1']");
+    err_msg[0] = "List instance is missing its key \"a\".";
+    err_path[0] = "/a:l1[b='b'][c='1']";
+    PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     data = "{ \"a:l1\": [ {\"a\" : \"a\"}]}";
-    assert_int_equal(LY_EVALID, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    logbuf_assert("List instance is missing its key \"b\". /a:l1[a='a']");
+    err_msg[0] = "List instance is missing its key \"b\".";
+    err_path[0] = "/a:l1[a='a']";
+    PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     data = "{ \"a:l1\": [ {\"b\" : \"b\", \"a\" : \"a\"}]}";
-    assert_int_equal(LY_EVALID, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    logbuf_assert("List instance is missing its key \"c\". /a:l1[a='a'][b='b']");
+    err_msg[0] = "List instance is missing its key \"c\".";
+    err_path[0] = "/a:l1[a='a'][b='b']";
+    PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     /* key duplicate */
     data = "{ \"a:l1\": [ {\"c\" : 1, \"b\" : \"b\", \"a\" : \"a\", \"c\" : 1}]}";
-    assert_int_equal(LY_EVALID, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    logbuf_assert("Duplicate instance of \"c\". /a:l1[a='a'][b='b'][c='1'][c='1']/c");
+    err_msg[0] = "Duplicate instance of \"c\".";
+    err_path[0] = "/a:l1[a='a'][b='b'][c='1'][c='1']/c";
+    PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     /* keys order, in contrast to XML, JSON accepts keys in any order even in strict mode */
-    logbuf_clean();
     data = "{ \"a:l1\": [ {\"d\" : \"d\", \"a\" : \"a\", \"c\" : 1, \"b\" : \"b\"}]}";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    assert_non_null(tree);
-    assert_int_equal(LYS_LIST, tree->schema->nodetype);
-    assert_string_equal("l1", tree->schema->name);
+    CHECK_PARSE_LYD(data, 0, tree);
+    flag = 0x85;
+    CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "l1", 1, LYS_LIST, 0, 0, NULL, 0);
     list = (struct lyd_node_inner *)tree;
     assert_non_null(leaf = (struct lyd_node_term *)list->child);
-    assert_string_equal("a", leaf->schema->name);
+    flag = 0x105;
+    CHECK_LYSC_NODE(leaf->schema, NULL, 0, flag, 1, "a", 1, LYS_LEAF, 1, 0, NULL, 0);
     assert_non_null(leaf = (struct lyd_node_term *)leaf->next);
-    assert_string_equal("b", leaf->schema->name);
+    CHECK_LYSC_NODE(leaf->schema, NULL, 0, flag, 1, "b", 1, LYS_LEAF, 1, 0, NULL, 0);
     assert_non_null(leaf = (struct lyd_node_term *)leaf->next);
-    assert_string_equal("c", leaf->schema->name);
+    CHECK_LYSC_NODE(leaf->schema, NULL, 0, flag, 1, "c", 1, LYS_LEAF, 1, 0, NULL, 0);
     assert_non_null(leaf = (struct lyd_node_term *)leaf->next);
-    assert_string_equal("d", leaf->schema->name);
-    logbuf_assert("");
+    flag = 0x5;
+    CHECK_LYSC_NODE(leaf->schema, NULL, 0, flag, 1, "d", 0, LYS_LEAF, 1, 0, NULL, 0);
+    CHECK_CTX_ERROR_NONE(CONTEXT_GET);
 
-    lyd_print_all(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(printed, "{\"a:l1\":[{\"a\":\"a\",\"b\":\"b\",\"c\":1,\"d\":\"d\"}]}");
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, "{\"a:l1\":[{\"a\":\"a\",\"b\":\"b\",\"c\":1,\"d\":\"d\"}]}");
+    CHECK_FREE_LYD(tree);
 
     /*  */
     data = "{\"a:l1\":[{\"c\":1,\"b\":\"b\",\"a\":\"a\"}]}";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, LYD_PARSE_STRICT, LYD_VALIDATE_PRESENT, &tree));
-    assert_non_null(tree);
-    assert_int_equal(LYS_LIST, tree->schema->nodetype);
-    assert_string_equal("l1", tree->schema->name);
+    CHECK_PARSE_LYD(data, LYD_PARSE_STRICT, tree);
+    flag = 0x85;
+    CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "l1", 1, LYS_LIST, 0, 0, NULL, 0);
     list = (struct lyd_node_inner *)tree;
+    flag = 0x105;
     assert_non_null(leaf = (struct lyd_node_term *)list->child);
-    assert_string_equal("a", leaf->schema->name);
+    CHECK_LYSC_NODE(leaf->schema, NULL, 0, flag, 1, "a", 1, LYS_LEAF, 1, 0, NULL, 0);
     assert_non_null(leaf = (struct lyd_node_term *)leaf->next);
-    assert_string_equal("b", leaf->schema->name);
+    CHECK_LYSC_NODE(leaf->schema, NULL, 0, flag, 1, "b", 1, LYS_LEAF, 1, 0, NULL, 0);
     assert_non_null(leaf = (struct lyd_node_term *)leaf->next);
-    assert_string_equal("c", leaf->schema->name);
-    logbuf_assert("");
+    CHECK_LYSC_NODE(leaf->schema, NULL, 0, flag, 1, "c", 1, LYS_LEAF, 1, 0, NULL, 0);
+    CHECK_CTX_ERROR_NONE(CONTEXT_GET);
 
-    lyd_print_all(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(printed, "{\"a:l1\":[{\"a\":\"a\",\"b\":\"b\",\"c\":1}]}");
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, "{\"a:l1\":[{\"a\":\"a\",\"b\":\"b\",\"c\":1}]}");
+    CHECK_FREE_LYD(tree);
 
     data = "{\"a:cp\":{\"@\":{\"a:hint\":1}}}";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
+    CHECK_PARSE_LYD(data, 0, tree);
     assert_non_null(tree);
     tree = tree->next;
-    assert_int_equal(LYS_CONTAINER, tree->schema->nodetype);
-    assert_string_equal("cp", tree->schema->name);
-    assert_non_null(tree->meta);
-    assert_string_equal("hint", tree->meta->name);
-    assert_string_equal("1", tree->meta->value.canonical);
-    assert_ptr_equal(tree, tree->meta->parent);
+    flag = 0x85;
+    CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "cp", 1, LYS_CONTAINER, 0, 0, NULL, 0);
+    CHECK_LYD_META(tree->meta, 1, "hint", 0, 1,  INT8, "1", 1);
     assert_null(tree->meta->next);
 
-    lyd_print_all(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(printed, data);
-    ly_out_free(out, NULL, 1);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
-    *state = NULL;
+    CONTEXT_DESTROY;
 }
 
 static void
 test_container(void **state)
 {
-    *state = test_container;
+    (void) state;
 
     const char *data = "{\"a:c\":{}}";
     struct lyd_node *tree;
     struct lyd_node_inner *cont;
+    int unsigned flag;
 
-    char *printed;
-    struct ly_out *out;
+    CONTEXT_CREATE;
 
-    assert_int_equal(LY_SUCCESS, ly_out_new_memory(&printed, 0, &out));
-
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    assert_non_null(tree);
-    assert_int_equal(LYS_CONTAINER, tree->schema->nodetype);
-    assert_string_equal("c", tree->schema->name);
+    CHECK_PARSE_LYD(data, 0, tree);
+    flag = 0x5;
+    CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "c", 1, LYS_CONTAINER, 0, 0, NULL, 0);
     cont = (struct lyd_node_inner *)tree;
     assert_true(cont->flags & LYD_DEFAULT);
 
-    lyd_print_all(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(printed, "{}");
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, "{}");
+    CHECK_FREE_LYD(tree);
 
     data = "{\"a:cp\":{}}";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
+    CHECK_PARSE_LYD(data, 0, tree);
     assert_non_null(tree);
     tree = tree->next;
-    assert_int_equal(LYS_CONTAINER, tree->schema->nodetype);
-    assert_string_equal("cp", tree->schema->name);
+    flag = 0x85;
+    CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "cp", 1, LYS_CONTAINER, 0, 0, NULL, 0);
     cont = (struct lyd_node_inner *)tree;
     assert_false(cont->flags & LYD_DEFAULT);
 
-    lyd_print_all(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(printed, data);
-    ly_out_free(out, NULL, 1);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
-    *state = NULL;
+    CONTEXT_DESTROY;
 }
 
 static void
 test_opaq(void **state)
 {
-    *state = test_opaq;
+    (void) state;
 
     const char *data;
-    char *str;
     struct lyd_node *tree;
+    char *err_msg[1];
+    char *err_path[1];
 
-    struct ly_out *out;
-
-    assert_int_equal(LY_SUCCESS, ly_out_new_memory(&str, 0, &out));
+    CONTEXT_CREATE;
 
     /* invalid value, no flags */
     data = "{\"a:foo3\":[null]}";
-    assert_int_equal(LY_EVALID, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    logbuf_assert("Invalid non-number-encoded uint32 value \"\". /a:foo3");
-    assert_null(tree);
+    err_msg[0] = "Invalid non-number-encoded uint32 value \"\".";
+    err_path[0] = "/a:foo3";
+    PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     /* opaq flag */
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, LYD_PARSE_OPAQ, LYD_VALIDATE_PRESENT, &tree));
-    assert_non_null(tree);
-    assert_null(tree->schema);
-    assert_string_equal(((struct lyd_node_opaq *)tree)->name.name, "foo3");
-    assert_string_equal(((struct lyd_node_opaq *)tree)->value, "");
-
-    lyd_print_tree(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(str, data);
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_PARSE_LYD(data, LYD_PARSE_OPAQ, tree);
+    CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0, LY_PREF_JSON, "foo3", 0, 0, NULL,  0,  "");
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
     /* missing key, no flags */
     data = "{\"a:l1\":[{\"a\":\"val_a\",\"b\":\"val_b\",\"d\":\"val_d\"}]}";
-    assert_int_equal(LY_EVALID, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    logbuf_assert("List instance is missing its key \"c\". /a:l1[a='val_a'][b='val_b']");
-    assert_null(tree);
+    err_msg[0] = "List instance is missing its key \"c\".";
+    err_path[0] = "/a:l1[a='val_a'][b='val_b']";
+    PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     /* opaq flag */
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, LYD_PARSE_OPAQ, LYD_VALIDATE_PRESENT, &tree));
-    assert_non_null(tree);
-    assert_null(tree->schema);
-    assert_string_equal(((struct lyd_node_opaq *)tree)->name.name, "l1");
-    assert_string_equal(((struct lyd_node_opaq *)tree)->value, "");
-
-    lyd_print_tree(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(str, data);
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_PARSE_LYD(data, LYD_PARSE_OPAQ, tree);
+    CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0x1, LY_PREF_JSON, "l1", 0, 0, NULL,  0,  "");
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
     /* invalid key, no flags */
     data = "{\"a:l1\":[{\"a\":\"val_a\",\"b\":\"val_b\",\"c\":\"val_c\"}]}";
-    assert_int_equal(LY_EVALID, lyd_parse_data_mem(ctx, data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, &tree));
-    logbuf_assert("Invalid non-number-encoded int16 value \"val_c\". /a:l1/c");
-    assert_null(tree);
+    err_msg[0] = "Invalid non-number-encoded int16 value \"val_c\".";
+    err_path[0] = "/a:l1/c";
+    PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     /* opaq flag */
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, LYD_PARSE_OPAQ, LYD_VALIDATE_PRESENT, &tree));
-    assert_non_null(tree);
-    assert_null(tree->schema);
-    assert_string_equal(((struct lyd_node_opaq *)tree)->name.name, "l1");
-    assert_string_equal(((struct lyd_node_opaq *)tree)->value, "");
-
-    lyd_print_tree(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(str, data);
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_PARSE_LYD(data, LYD_PARSE_OPAQ, tree);
+    CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0x1, LY_PREF_JSON, "l1", 0, 0, NULL,  0,  "");
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
     data = "{\"a:l1\":[{\"a\":\"val_a\",\"b\":\"val_b\",\"c\":{\"val\":\"val_c\"}}]}";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, LYD_PARSE_OPAQ, LYD_VALIDATE_PRESENT, &tree));
-    assert_non_null(tree);
-    assert_null(tree->schema);
-    assert_string_equal(((struct lyd_node_opaq *)tree)->name.name, "l1");
-    assert_string_equal(((struct lyd_node_opaq *)tree)->value, "");
-
-    lyd_print_tree(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(str, data);
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_PARSE_LYD(data, LYD_PARSE_OPAQ, tree);
+    CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0x1, LY_PREF_JSON, "l1", 0, 0, NULL,  0,  "");
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
     data = "{\"a:l1\":[{\"a\":\"val_a\",\"b\":\"val_b\"}]}";
-    assert_int_equal(LY_SUCCESS, lyd_parse_data_mem(ctx, data, LYD_JSON, LYD_PARSE_OPAQ, LYD_VALIDATE_PRESENT, &tree));
-    assert_non_null(tree);
-    assert_null(tree->schema);
-    assert_string_equal(((struct lyd_node_opaq *)tree)->name.name, "l1");
-    assert_string_equal(((struct lyd_node_opaq *)tree)->value, "");
+    CHECK_PARSE_LYD(data, LYD_PARSE_OPAQ, tree);
+    CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0x1, LY_PREF_JSON, "l1", 0, 0, NULL,  0,  "");
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
-    lyd_print_tree(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(str, data);
-    ly_out_reset(out);
-    lyd_free_all(tree);
-
-    ly_out_free(out, NULL, 1);
-
-    *state = NULL;
+    CONTEXT_DESTROY;
 }
 
 static void
 test_rpc(void **state)
 {
-    *state = test_rpc;
+    (void) state;
 
     const char *data;
     struct ly_in *in;
-    char *str;
     struct lyd_node *tree, *op;
     const struct lyd_node *node;
+    int unsigned flag;
 
-    struct ly_out *out;
-
-    assert_int_equal(LY_SUCCESS, ly_out_new_memory(&str, 0, &out));
+    CONTEXT_CREATE;
 
     data = "{\"ietf-netconf:rpc\":{\"edit-config\":{"
             "\"target\":{\"running\":[null]},"
@@ -644,46 +496,47 @@ test_rpc(void **state)
             "\"a:l1\":[{\"@\":{\"ietf-netconf:operation\":\"replace\"},\"a\":\"val_a\",\"b\":\"val_b\",\"c\":\"val_c\"}]}"
             "}}}";
     assert_int_equal(LY_SUCCESS, ly_in_new_memory(data, &in));
-    assert_int_equal(LY_SUCCESS, lyd_parse_rpc(ctx, in, LYD_JSON, &tree, &op));
+    assert_int_equal(LY_SUCCESS, lyd_parse_rpc(CONTEXT_GET, in, LYD_JSON, &tree, &op));
     ly_in_free(in, 0);
 
     assert_non_null(op);
-    assert_string_equal(op->schema->name, "edit-config");
+    const char *dsc = "The <edit-config> operation loads all or part of a specified\n"
+            "configuration to the specified target configuration.";
+    const char *ref = "RFC 6241, Section 7.2";
 
-    assert_non_null(tree);
-    assert_null(tree->schema);
-    assert_string_equal(((struct lyd_node_opaq *)tree)->name.name, "rpc");
+    CHECK_LYSC_ACTION((struct lysc_action *)op->schema, dsc, 0, LYS_STATUS_CURR,
+            1, 0, 0, 1, "edit-config", LYS_RPC,
+            0, 0, 0, 0, 0, ref, 0);
+
+    CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0x1, LY_PREF_JSON, "rpc", 0, 0, NULL,  0,  "");
     /* TODO support generic attributes in JSON ?
     assert_non_null(((struct lyd_node_opaq *)tree)->attr);
     */
+
     node = lyd_child(tree);
-    assert_string_equal(node->schema->name, "edit-config");
+    CHECK_LYSC_ACTION((struct lysc_action *)node->schema, dsc, 0, LYS_STATUS_CURR,
+            1, 0, 0, 1, "edit-config", LYS_RPC,
+            0, 0, 0, 0, 0, ref, 0);
     node = lyd_child(node)->next;
-    assert_string_equal(node->schema->name, "config");
+    flag = 0x5;
+    CHECK_LYSC_NODE(node->schema, "Inline Config content.", 0, flag, 1, "config", 0, LYS_ANYXML, 1, 0, NULL, 0);
 
     node = ((struct lyd_node_any *)node)->value.tree;
-    assert_non_null(node->schema);
-    assert_string_equal(node->schema->name, "cp");
+    flag = 0x85;
+    CHECK_LYSC_NODE(node->schema, NULL, 0, flag, 1, "cp", 1, LYS_CONTAINER, 0, 0, NULL, 0);
     node = lyd_child(node);
     /* z has no value */
-    assert_null(node->schema);
-    assert_string_equal(((struct lyd_node_opaq *)node)->name.name, "z");
+    CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)node, 0x1, 0, LY_PREF_JSON, "z", 0, 0, NULL,  0,  "");
     node = node->parent->next;
     /* l1 key c has invalid value so it is at the end */
-    assert_null(node->schema);
-    assert_string_equal(((struct lyd_node_opaq *)node)->name.name, "l1");
+    CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)node, 0x1, 0x1, LY_PREF_JSON, "l1", 0, 0, NULL,  0,  "");
 
-    lyd_print_tree(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(str, data);
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
     /* wrong namespace, element name, whatever... */
     /* TODO */
-
-    ly_out_free(out, NULL, 1);
-
-    *state = NULL;
+    CONTEXT_DESTROY;
 }
 
 static void
@@ -693,42 +546,31 @@ test_action(void **state)
 
     const char *data;
     struct ly_in *in;
-    char *str;
     struct lyd_node *tree, *op;
     const struct lyd_node *node;
 
-    struct ly_out *out;
-
-    assert_int_equal(LY_SUCCESS, ly_out_new_memory(&str, 0, &out));
+    CONTEXT_CREATE;
 
     data = "{\"ietf-netconf:rpc\":{\"yang:action\":{\"a:c\":{\"act\":{\"al\":\"value\"}}}}}";
     assert_int_equal(LY_SUCCESS, ly_in_new_memory(data, &in));
-    assert_int_equal(LY_SUCCESS, lyd_parse_rpc(ctx, in, LYD_JSON, &tree, &op));
+    assert_int_equal(LY_SUCCESS, lyd_parse_rpc(CONTEXT_GET, in, LYD_JSON, &tree, &op));
     ly_in_free(in, 0);
 
     assert_non_null(op);
-    assert_string_equal(op->schema->name, "act");
+    CHECK_LYSC_ACTION((struct lysc_action *)op->schema, NULL, 0, LYS_STATUS_CURR,
+            1, 0, 0, 1, "act", LYS_ACTION,
+            1, 0, 0, 1, 0, NULL, 0);
 
-    assert_non_null(tree);
-    assert_null(tree->schema);
-    assert_string_equal(((struct lyd_node_opaq *)tree)->name.name, "rpc");
-    assert_null(((struct lyd_node_opaq *)tree)->attr);
+    CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0x1, LY_PREF_JSON, "rpc", 0, 0, NULL,  0,  "");
     node = lyd_child(tree);
-    assert_null(node->schema);
-    assert_string_equal(((struct lyd_node_opaq *)node)->name.name, "action");
-    assert_null(((struct lyd_node_opaq *)node)->attr);
+    CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)node, 0, 0x1, LY_PREF_JSON, "action", 0, 0, NULL,  0,  "");
 
-    lyd_print_tree(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(str, data);
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
     /* wrong namespace, element name, whatever... */
     /* TODO */
-
-    ly_out_free(out, NULL, 1);
-
-    *state = NULL;
+    CONTEXT_DESTROY;
 }
 
 static void
@@ -738,136 +580,111 @@ test_notification(void **state)
 
     const char *data;
     struct ly_in *in;
-    char *str;
     struct lyd_node *tree, *ntf;
     const struct lyd_node *node;
+    int unsigned flag;
 
-    struct ly_out *out;
-
-    assert_int_equal(LY_SUCCESS, ly_out_new_memory(&str, 0, &out));
+    CONTEXT_CREATE;
 
     data = "{\"ietf-restconf:notification\":{\"eventTime\":\"2037-07-08T00:01:00Z\",\"a:c\":{\"n1\":{\"nl\":\"value\"}}}}";
     assert_int_equal(LY_SUCCESS, ly_in_new_memory(data, &in));
-    assert_int_equal(LY_SUCCESS, lyd_parse_notif(ctx, in, LYD_JSON, &tree, &ntf));
+    assert_int_equal(LY_SUCCESS, lyd_parse_notif(CONTEXT_GET, in, LYD_JSON, &tree, &ntf));
     ly_in_free(in, 0);
 
     assert_non_null(ntf);
-    assert_string_equal(ntf->schema->name, "n1");
+    CHECK_LYSC_NOTIF((struct lysc_notif *)ntf->schema, 1, NULL, 0, 0x4, 1, 0, "n1", 1, 0, NULL, 0);
 
-    assert_non_null(tree);
-    assert_null(tree->schema);
-    assert_string_equal(((struct lyd_node_opaq *)tree)->name.name, "notification");
-    assert_null(((struct lyd_node_opaq *)tree)->attr);
+    CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0x1, LY_PREF_JSON, "notification", 0, 0, NULL,  0,  "");
     node = lyd_child(tree);
-    assert_null(node->schema);
-    assert_string_equal(((struct lyd_node_opaq *)node)->name.name, "eventTime");
-    assert_string_equal(((struct lyd_node_opaq *)node)->value, "2037-07-08T00:01:00Z");
-    assert_null(((struct lyd_node_opaq *)node)->attr);
+    CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)node, 0, 0, LY_PREF_JSON, "eventTime", 0, 0, NULL,  0,  "2037-07-08T00:01:00Z");
     node = node->next;
-    assert_non_null(node->schema);
-    assert_string_equal(node->schema->name, "c");
+    flag = 0x5;
+    CHECK_LYSC_NODE(node->schema, NULL, 0, flag, 1, "c", 1, LYS_CONTAINER, 0, 0, NULL, 0);
 
-    lyd_print_tree(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(str, data);
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
     /* top-level notif without envelope */
     data = "{\"a:n2\":{}}";
     assert_int_equal(LY_SUCCESS, ly_in_new_memory(data, &in));
-    assert_int_equal(LY_SUCCESS, lyd_parse_notif(ctx, in, LYD_JSON, &tree, &ntf));
+    assert_int_equal(LY_SUCCESS, lyd_parse_notif(CONTEXT_GET, in, LYD_JSON, &tree, &ntf));
     ly_in_free(in, 0);
 
     assert_non_null(ntf);
-    assert_string_equal(ntf->schema->name, "n2");
+    CHECK_LYSC_NOTIF((struct lysc_notif *)ntf->schema, 0, NULL, 0, 0x4, 1, 0, "n2", 0, 0, NULL, 0);
 
     assert_non_null(tree);
     assert_ptr_equal(ntf, tree);
 
-    lyd_print_tree(out, tree, LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(str, data);
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(tree, data);
+    CHECK_FREE_LYD(tree);
 
+    CONTEXT_DESTROY;
     /* wrong namespace, element name, whatever... */
     /* TODO */
-
-    ly_out_free(out, NULL, 1);
-
-    *state = NULL;
 }
 
 static void
 test_reply(void **state)
 {
-    *state = test_reply;
+    (void) state;
 
     const char *data;
     struct ly_in *in;
-    char *str;
     struct lyd_node *request, *tree, *op;
     const struct lyd_node *node;
+    int unsigned flag;
 
-    struct ly_out *out;
-
-    assert_int_equal(LY_SUCCESS, ly_out_new_memory(&str, 0, &out));
+    CONTEXT_CREATE;
 
     data = "{\"a:c\":{\"act\":{\"al\":\"value\"}}}";
     assert_int_equal(LY_SUCCESS, ly_in_new_memory(data, &in));
-    assert_int_equal(LY_SUCCESS, lyd_parse_rpc(ctx, in, LYD_JSON, &request, NULL));
+    assert_int_equal(LY_SUCCESS, lyd_parse_rpc(CONTEXT_GET, in, LYD_JSON, &request, NULL));
     ly_in_free(in, 0);
 
     data = "{\"ietf-netconf:rpc-reply\":{\"a:al\":25}}";
     assert_int_equal(LY_SUCCESS, ly_in_new_memory(data, &in));
     assert_int_equal(LY_SUCCESS, lyd_parse_reply(request, in, LYD_JSON, &tree, &op));
     ly_in_free(in, 0);
-    lyd_free_all(request);
+    CHECK_FREE_LYD(request);
 
     assert_non_null(op);
-    assert_string_equal(op->schema->name, "act");
+    CHECK_LYSC_ACTION((struct lysc_action *)op->schema, NULL, 0, LYS_STATUS_CURR,
+            1, 0, 0, 1, "act", LYS_ACTION,
+            1, 0, 0, 1, 0, NULL, 0);
     node = lyd_child(op);
-    assert_non_null(node->schema);
-    assert_string_equal(node->schema->name, "al");
-    assert_true(node->schema->flags & LYS_CONFIG_R);
+    flag = 0x6;
+    CHECK_LYSC_NODE(node->schema, NULL, 0, flag, 1, "al", 0, LYS_LEAF, 1, 0, NULL, 0);
 
-    assert_non_null(tree);
-    assert_null(tree->schema);
-    assert_string_equal(((struct lyd_node_opaq *)tree)->name.name, "rpc-reply");
+    CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0x1, LY_PREF_JSON, "rpc-reply", 0, 0, NULL,  0,  "");
     node = lyd_child(tree);
-    assert_non_null(node->schema);
-    assert_string_equal(node->schema->name, "c");
+    flag = 0x5;
+    CHECK_LYSC_NODE(node->schema, NULL, 0, flag, 1, "c", 1, LYS_CONTAINER, 0, 0, NULL, 0);
 
     /* TODO print only rpc-reply node and then output subtree */
-    lyd_print_tree(out, lyd_child(op), LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(str, "{\"a:al\":25}");
-    ly_out_reset(out);
-    lyd_print_tree(out, lyd_child(tree), LYD_JSON, LYD_PRINT_SHRINK);
-    assert_string_equal(str, "{\"a:c\":{\"act\":{\"al\":25}}}");
-    ly_out_reset(out);
-    lyd_free_all(tree);
+    CHECK_LYD_STRING(lyd_child(op), "{\"a:al\":25}");
+    CHECK_LYD_STRING(lyd_child(tree), "{\"a:c\":{\"act\":{\"al\":25}}}");
+    CHECK_FREE_LYD(tree);
 
     /* wrong namespace, element name, whatever... */
     /* TODO */
-
-    ly_out_free(out, NULL, 1);
-
-    *state = NULL;
+    CONTEXT_DESTROY;
 }
 
 int
 main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test_setup_teardown(test_leaf, setup, teardown),
-        cmocka_unit_test_setup_teardown(test_leaflist, setup, teardown),
-        cmocka_unit_test_setup_teardown(test_anydata, setup, teardown),
-        cmocka_unit_test_setup_teardown(test_list, setup, teardown),
-        cmocka_unit_test_setup_teardown(test_container, setup, teardown),
-        cmocka_unit_test_setup_teardown(test_opaq, setup, teardown),
-        cmocka_unit_test_setup_teardown(test_rpc, setup, teardown),
-        cmocka_unit_test_setup_teardown(test_action, setup, teardown),
-        cmocka_unit_test_setup_teardown(test_notification, setup, teardown),
-        cmocka_unit_test_setup_teardown(test_reply, setup, teardown),
+        cmocka_unit_test(test_leaf),
+        cmocka_unit_test(test_leaflist),
+        cmocka_unit_test(test_anydata),
+        cmocka_unit_test(test_list),
+        cmocka_unit_test(test_container),
+        cmocka_unit_test(test_opaq),
+        cmocka_unit_test(test_rpc),
+        cmocka_unit_test(test_action),
+        cmocka_unit_test(test_notification),
+        cmocka_unit_test(test_reply),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
