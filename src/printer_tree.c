@@ -20,6 +20,7 @@
 #include <stdarg.h>
 
 #include "common.h"
+#include "compat.h"
 #include "context.h"
 #include "dict.h"
 #include "log.h"
@@ -658,9 +659,9 @@ struct trt_fp_modify_ctx
  */
 struct trt_fp_read
 {
-    trt_keyword_stmt (*module_name)(const struct trt_tree_ctx*);            /**< Get name of the module. */
-    trt_node (*node)(struct trt_parent_cache, const struct trt_tree_ctx*);  /**< Get current node. */
-    ly_bool (*if_sibling_exists)(const struct trt_tree_ctx*);               /**< Check if node's sibling exists. */
+    trt_keyword_stmt (*module_name)(const struct trt_tree_ctx*);                        /**< Get name of the module. */
+    trt_node (*node)(struct trt_parent_cache, const struct trt_tree_ctx*);              /**< Get current node. */
+    ly_bool (*if_sibling_exists)(struct trt_parent_cache, const struct trt_tree_ctx*);  /**< Check if node's sibling exists. */
 };
 
 /* ===================================== */
@@ -785,7 +786,7 @@ uint32_t trb_get_number_of_siblings(struct trt_fp_modify_ctx, struct trt_tree_ct
  * To mantain stability use this function only if the current node is the first of the siblings.
  * Side-effect -> current node is set to the first sibling if node has a parent otherwise no side-effect.
  */
-ly_bool trb_parent_is_last_sibling(struct trt_fp_all, struct trt_tree_ctx*);
+ly_bool trb_parent_is_last_sibling(struct trt_parent_cache, struct trt_fp_all, struct trt_tree_ctx*);
 
 /* --------- <For unified indentation> --------- */
 
@@ -999,7 +1000,7 @@ trt_keyword_stmt tro_read_module_name(const struct trt_tree_ctx*);
 trt_node tro_read_node(struct trt_parent_cache, const struct trt_tree_ctx *);
 
 /** Find out if the current node has siblings. */
-ly_bool tro_read_if_sibling_exists(const struct trt_tree_ctx*);
+ly_bool tro_read_if_sibling_exists(struct trt_parent_cache ca, const struct trt_tree_ctx*);
 
 /* --------- <Modify getters> --------- */
 /* Data in trt_tree_ctx will be modified. */
@@ -2036,8 +2037,9 @@ void
 trb_print_nodes(trt_wrapper wr, struct trt_parent_cache ca, struct trt_printer_ctx *pc, struct trt_tree_ctx *tc)
 {
   /* if node is last sibling, then do not add '|' to wrapper */
-  wr = trb_parent_is_last_sibling(pc->fp, tc) ? trp_wrapper_set_shift(wr)
-                                              : trp_wrapper_set_mark(wr);
+  wr = trb_parent_is_last_sibling(ca, pc->fp, tc) ?
+      trp_wrapper_set_shift(wr) : trp_wrapper_set_mark(wr);
+
   /* try unified indentation in node */
   const uint32_t max_gap_before_type = trb_try_unified_indent(wr, ca, pc, tc);
 
@@ -2091,14 +2093,14 @@ trb_print_entire_node(uint32_t max_gap_before_type, trt_wrapper wr, struct trt_p
 }
 
 ly_bool
-trb_parent_is_last_sibling(struct trt_fp_all fp, struct trt_tree_ctx* tc)
+trb_parent_is_last_sibling(struct trt_parent_cache ca, struct trt_fp_all fp, struct trt_tree_ctx* tc)
 {
     if(fp.modify.parent(tc)) {
-        ly_bool ret = fp.read.if_sibling_exists(tc);
+        ly_bool ret = fp.read.if_sibling_exists(ca, tc);
         fp.modify.next_child(tro_empty_parent_cache(), tc);
         return !ret;
     } else {
-        return !fp.read.if_sibling_exists(tc);
+        return !fp.read.if_sibling_exists(ca, tc);
     }
 }
 
@@ -2613,32 +2615,71 @@ tro_read_node(struct trt_parent_cache ca, const struct trt_tree_ctx* tc)
         pn->nodetype & (LYS_INPUT | LYS_OUTPUT) ?   trp_empty_iffeature() :
         tro_lysp_node_has_iffeature(pn->iffeatures);
 
-    ret.last_one = !tro_read_if_sibling_exists(tc);
+    ret.last_one = !tro_read_if_sibling_exists(ca, tc);
 
     return ret;
 }
 
 ly_bool
-tro_read_if_sibling_exists(const struct trt_tree_ctx* tc)
+tro_read_if_sibling_exists(struct trt_parent_cache ca, const struct trt_tree_ctx* tc)
 {
+    /* this code is unfortunately very duplicated with the function tro_modi_next_sibling.
+     * What's more, changes in the function tro_modi_next_sibling can be reflected in this function.
+     */
     assert(tc != NULL && tc->pn != NULL && tc->module != NULL && tc->module->parsed != NULL);
-    if(tc->section == trd_sect_rpcs) {
-        if(tc->pn->nodetype & LYS_INPUT) {
-            const struct lysp_action *parent = (struct lysp_action*)tc->pn->parent;
-            return parent->output.data != NULL;
-        } else if(tc->pn->nodetype & LYS_OUTPUT) {
-            return 0;
-        } else if(tc->pn->nodetype & (LYS_ACTION | LYS_RPC)) {
+    if(tc->pn->nodetype & (LYS_RPC | LYS_ACTION)){
+        if(tc->section == trd_sect_rpcs && tc->tpn == tc->pn) {
             const struct lysp_action *arr = tc->module->parsed->rpcs;
             return arr && tc->index_within_section + 1 < (int64_t)LY_ARRAY_COUNT(arr);
-        } /* else actual node is rpc's data node */
-
-    } else if(tc->section == trd_sect_notif && tc->pn->nodetype & LYS_NOTIF) {
-        const struct lysp_notif *arr = tc->module->parsed->notifs;
-        return arr && tc->index_within_section + 1 < (int64_t)LY_ARRAY_COUNT(arr);
+        } else {
+            const struct lysp_action* arr_actions = lysp_node_actions(tc->pn->parent);
+            const struct lysp_notif* arr_notifs = lysp_node_notifs(tc->pn->parent);
+            if(ca.index + 1 < (int64_t)LY_ARRAY_COUNT(arr_actions)) {
+                return 1;
+            } else if(arr_notifs){
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+    } else if(tc->pn->nodetype & LYS_INPUT) {
+        const struct lysp_action *parent = (struct lysp_action *)tc->pn->parent;
+        const struct lysp_node *output_data = parent->output.data;
+        /* if output action has data */
+        return output_data ? 1 : 0;
+    } else if(tc->pn->nodetype & LYS_OUTPUT) {
+        return 0;
+    } else if(tc->pn->nodetype & LYS_NOTIF) {
+        if(tc->section == trd_sect_notif && tc->tpn == tc->pn) {
+            const struct lysp_notif *arr = tc->module->parsed->notifs;
+            return arr && tc->index_within_section + 1 < (int64_t)LY_ARRAY_COUNT(arr);
+        } else {
+            const struct lysp_notif* arr_notifs = lysp_node_notifs(tc->pn->parent);
+            if(ca.index + 1 < (int64_t)LY_ARRAY_COUNT(arr_notifs)) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+    } else {
+        if(tc->pn->next != NULL) {
+            return 1;
+        } else {
+            if(tc->pn->parent != NULL) {
+                const struct lysp_action* arr_actions = lysp_node_actions(tc->pn->parent);
+                const struct lysp_notif* arr_notifs = lysp_node_notifs(tc->pn->parent);
+                if(arr_actions) {
+                    return 1;
+                } else if(arr_notifs) {
+                    return 1;
+                } else {
+                    return 0;
+                }
+            } else {
+                return 0;
+            }
+        }
     }
-
-    return tc->pn->next != NULL;
 }
 
 /* --------- <Modify getters> --------- */
@@ -2709,6 +2750,10 @@ tro_modi_first_sibling(struct trt_tree_ctx* tc)
 struct trt_level
 tro_modi_next_sibling(struct trt_parent_cache ca, struct trt_tree_ctx* tc)
 {
+    /* if you make changes in this function, please make sure to
+     * make a change to function tro_read_if_sibling_exists as well,
+     * as it is essentially the same.
+     */
     assert(tc != NULL && tc->pn != NULL && tc->module != NULL && tc->module->parsed != NULL);
 
     if(tc->pn->nodetype & (LYS_RPC | LYS_ACTION)){
