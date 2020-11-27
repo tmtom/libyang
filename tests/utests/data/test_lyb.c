@@ -17,14 +17,6 @@
 #include "tests/config.h"
 #include "utests.h"
 
-#define CHECK_PARSE_LYD(INPUT, MODEL) \
-                CHECK_PARSE_LYD_PARAM(INPUT, LYD_XML, LYD_PARSE_ONLY | LYD_PARSE_STRICT, 0,LY_SUCCESS, MODEL)
-
-#define CONTEXT_CREATE \
-                CONTEXT_CREATE_PATH(TESTS_DIR_MODULES_YANG)
-
-#define CHECK_LYD_STRING(MODEL, TEXT) \
-                CHECK_LYD_STRING_PARAM(MODEL, TEXT, LYD_XML, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK)
 
 static void
 test_ietf_interfaces(void **state)
@@ -68,14 +60,14 @@ test_ietf_interfaces(void **state)
             "    </interface>\n"
             "</interfaces>\n";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(TESTS_DIR_MODULES_YANG);
     assert_non_null(ly_ctx_load_module(CONTEXT_GET, "ietf-ip", NULL, NULL));
     assert_non_null(ly_ctx_load_module(CONTEXT_GET, "iana-if-type", NULL, NULL));
 
     /* model_1 */
     struct lyd_node *model_1;
 
-    CHECK_PARSE_LYD(data_xml, model_1);
+    CHECK_PARSE_LYD(data_xml, LYD_XML, LYD_PARSE_ONLY | LYD_PARSE_STRICT, 0, LY_SUCCESS, model_1);
 
     /* model_2 */
     char *xml_out;
@@ -127,14 +119,14 @@ test_origin(void **state)
             "  <leaf3 xmlns:or=\"urn:ietf:params:xml:ns:yang:ietf-origin\" or:origin=\"or:system\">125</leaf3>\n"
             "</cont>\n";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(TESTS_DIR_MODULES_YANG);
     assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, origin_yang, LYS_IN_YANG, NULL));
     lys_set_implemented(ly_ctx_get_module_latest(CONTEXT_GET, "ietf-origin"), NULL);
 
     /* model_1 */
     struct lyd_node *model_1;
 
-    CHECK_PARSE_LYD(data_xml, model_1);
+    CHECK_PARSE_LYD(data_xml, LYD_XML, LYD_PARSE_ONLY | LYD_PARSE_STRICT, 0, LY_SUCCESS, model_1);
 
     /* model_2 */
     char *xml_out;
@@ -347,14 +339,14 @@ test_statements(void **state)
             "  <iref>random-identity</iref>\n"
             "</random>\n";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(TESTS_DIR_MODULES_YANG);
     assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, links_yang, LYS_IN_YANG, NULL));
     assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, statements_yang, LYS_IN_YANG, NULL));
 
     /* model_1 */
     struct lyd_node *model_1;
 
-    CHECK_PARSE_LYD(data_xml, model_1);
+    CHECK_PARSE_LYD(data_xml, LYD_XML, LYD_PARSE_ONLY | LYD_PARSE_STRICT, 0, LY_SUCCESS, model_1);
 
     /* model_2 */
     char *xml_out;
@@ -375,287 +367,290 @@ test_statements(void **state)
     CONTEXT_DESTROY;
 }
 
-// static void
-// test_types(void **state)
-// {
-// struct state *st = (*state);
-// int ret;
-//
-// ly_ctx_set_searchdir(st->ctx, TESTS_DIR"/data/files");
-// assert_non_null(ly_ctx_load_module(st->ctx, "types", NULL));
-//
-// st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR"/data/files/types.xml", LYD_XML, LYD_OPT_CONFIG);
-// assert_ptr_not_equal(st->dt1, NULL);
-//
-// ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
-// assert_int_equal(ret, 0);
-//
-// st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
-// assert_ptr_not_equal(st->dt2, NULL);
-//
-// check_data_tree(st->dt1, st->dt2);
-// }
-//
-// static void
-// test_annotations(void **state)
-// {
-// struct state *st = (*state);
-// int ret;
-//
-// ly_ctx_set_searchdir(st->ctx, TESTS_DIR"/data/files");
-// assert_non_null(ly_ctx_load_module(st->ctx, "annotations", NULL));
-//
-// st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR"/data/files/annotations.xml", LYD_XML, LYD_OPT_CONFIG);
-// assert_ptr_not_equal(st->dt1, NULL);
-//
-// ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
-// assert_int_equal(ret, 0);
-//
-// st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
-// assert_ptr_not_equal(st->dt2, NULL);
-//
-// check_data_tree(st->dt1, st->dt2);
-// }
-//
-// static void
-// test_similar_annot_names(void **state)
-// {
-// struct state *st = (*state);
-// int ret;
-//
-// ly_ctx_set_searchdir(st->ctx, TESTS_DIR"/data/files");
-// assert_non_null(ly_ctx_load_module(st->ctx, "annotations", NULL));
-//
-// st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR"/data/files/similar-annot-names.xml", LYD_XML, LYD_OPT_CONFIG);
-// assert_ptr_not_equal(st->dt1, NULL);
-//
-// ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
-// assert_int_equal(ret, 0);
-//
-// st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
-// assert_ptr_not_equal(st->dt2, NULL);
-//
-// check_data_tree(st->dt1, st->dt2);
-// }
-//
-// static void
-// test_many_child_annot(void **state)
-// {
-// struct state *st = (*state);
-// int ret;
-//
-// ly_ctx_set_searchdir(st->ctx, TESTS_DIR"/data/files");
-// assert_non_null(ly_ctx_load_module(st->ctx, "annotations", NULL));
-//
-// st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR"/data/files/many-childs-annot.xml", LYD_XML, LYD_OPT_CONFIG);
-// assert_ptr_not_equal(st->dt1, NULL);
-//
-// ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
-// assert_int_equal(ret, 0);
-//
-// st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
-// assert_ptr_not_equal(st->dt2, NULL);
-//
-// check_data_tree(st->dt1, st->dt2);
-// }
-//
-// static void
-// test_union(void **state)
-// {
-// struct state *st = (*state);
-// int ret;
-//
-// ly_ctx_set_searchdir(st->ctx, TESTS_DIR"/data/files");
-// assert_non_null(ly_ctx_load_module(st->ctx, "union", NULL));
-//
-// st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR"/data/files/union.xml", LYD_XML, LYD_OPT_CONFIG);
-// assert_ptr_not_equal(st->dt1, NULL);
-//
-// ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
-// assert_int_equal(ret, 0);
-//
-// st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
-// assert_ptr_not_equal(st->dt2, NULL);
-//
-// check_data_tree(st->dt1, st->dt2);
-// }
-//
-// static void
-// test_union2(void **state)
-// {
-// struct state *st = (*state);
-// int ret;
-//
-// ly_ctx_set_searchdir(st->ctx, TESTS_DIR"/data/files");
-// assert_non_null(ly_ctx_load_module(st->ctx, "statements", NULL));
-//
-// st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR"/data/files/union2.xml", LYD_XML, LYD_OPT_CONFIG);
-// assert_ptr_not_equal(st->dt1, NULL);
-//
-// ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
-// assert_int_equal(ret, 0);
-//
-// st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
-// assert_ptr_not_equal(st->dt2, NULL);
-//
-// check_data_tree(st->dt1, st->dt2);
-// }
-//
-// static void
-// test_collisions(void **state)
-// {
-// struct state *st = (*state);
-// int ret;
-//
-// ly_ctx_set_searchdir(st->ctx, TESTS_DIR"/data/files");
-// assert_non_null(ly_ctx_load_module(st->ctx, "annotations", NULL));
-//
-// st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR"/data/files/collisions.xml", LYD_XML, LYD_OPT_CONFIG);
-// assert_ptr_not_equal(st->dt1, NULL);
-//
-// ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
-// assert_int_equal(ret, 0);
-//
-// st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
-// assert_ptr_not_equal(st->dt2, NULL);
-//
-// check_data_tree(st->dt1, st->dt2);
-// }
-//
-// static void
-// test_anydata(void **state)
-// {
-// struct state *st = (*state);
-// const struct lys_module *mod;
-// int ret;
-// const char *test_anydata =
-// "module test-anydata {"
-// "   namespace \"urn:test-anydata\";"
-// "   prefix ya;"
-// ""
-// "   container cont {"
-// "       anydata ntf;"
-// "   }"
-// "}";
-//
-// assert_non_null(ly_ctx_load_module(st->ctx, "ietf-netconf-notifications", NULL));
-//
-// st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR"/data/files/ietf-netconf-notifications.json", LYD_JSON, LYD_OPT_NOTIF | LYD_OPT_TRUSTED, NULL);
-// assert_ptr_not_equal(st->dt1, NULL);
-//
-/// * get notification in LYB format to set as anydata content */
-// ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
-// assert_int_equal(ret, 0);
-//
-// lyd_free_withsiblings(st->dt1);
-// st->dt1 = NULL;
-//
-/// * now comes the real test, test anydata */
-// mod = lys_parse_mem(st->ctx, test_anydata, LYS_YANG);
-// assert_non_null(mod);
-//
-// st->dt1 = lyd_new(NULL, mod, "cont");
-// assert_non_null(st->dt1);
-//
-// assert_non_null(lyd_new_anydata(st->dt1, NULL, "ntf", st->mem, LYD_ANYDATA_LYBD));
-// st->mem = NULL;
-//
-// ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
-// assert_int_equal(ret, 0);
-//
-// ret = lyd_validate(&st->dt1, LYD_OPT_CONFIG, NULL);
-// assert_int_equal(ret, 0);
-//
-// st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
-// assert_ptr_not_equal(st->dt2, NULL);
-//
-// check_data_tree(st->dt1, st->dt2);
-//
-/// * and also test the embedded notification itself */
-// free(st->mem);
-// ret = lyd_lyb_data_length(((struct lyd_node_anydata *)st->dt1->child)->value.mem);
-// st->mem = malloc(ret);
-// memcpy(st->mem, ((struct lyd_node_anydata *)st->dt1->child)->value.mem, ret);
-//
-// lyd_free_withsiblings(st->dt2);
-// st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_NOTIF | LYD_OPT_STRICT | LYD_OPT_NOEXTDEPS, NULL);
-// assert_ptr_not_equal(st->dt2, NULL);
-//
-/// * parse the JSON again for this comparison */
-// lyd_free_withsiblings(st->dt1);
-// st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR"/data/files/ietf-netconf-notifications.json", LYD_JSON, LYD_OPT_NOTIF | LYD_OPT_TRUSTED, NULL);
-// assert_ptr_not_equal(st->dt1, NULL);
-//
-// check_data_tree(st->dt1, st->dt2);
-// }
-//
-// static void
-// test_submodule_feature(void **state)
-// {
-// struct state *st = (*state);
-// const struct lys_module *mod;
-// int ret;
-//
-// ly_ctx_set_searchdir(st->ctx, TESTS_DIR"/data/files");
-// mod = ly_ctx_load_module(st->ctx, "feature-submodule-main", NULL);
-// assert_non_null(mod);
-// assert_int_equal(lys_features_enable(mod, "test-submodule-feature"), 0);
-//
-// st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR"/data/files/test-submodule-feature.json", LYD_JSON, LYD_OPT_CONFIG);
-// assert_ptr_not_equal(st->dt1, NULL);
-//
-// ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
-// assert_int_equal(ret, 0);
-//
-// st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
-// assert_ptr_not_equal(st->dt2, NULL);
-//
-// check_data_tree(st->dt1, st->dt2);
-// }
-//
-// static void
-// test_coliding_augments(void **state)
-// {
-// struct state *st = (*state);
-// int ret;
-//
-// ly_ctx_set_searchdir(st->ctx, TESTS_DIR"/data/files");
-// assert_non_null(ly_ctx_load_module(st->ctx, "augment-target", NULL));
-// assert_non_null(ly_ctx_load_module(st->ctx, "augment0", NULL));
-// assert_non_null(ly_ctx_load_module(st->ctx, "augment1", NULL));
-//
-// st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR"/data/files/augment.xml", LYD_XML, LYD_OPT_CONFIG);
-// assert_ptr_not_equal(st->dt1, NULL);
-//
-// ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
-// assert_int_equal(ret, 0);
-//
-// st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
-// assert_ptr_not_equal(st->dt2, NULL);
-//
-// check_data_tree(st->dt1, st->dt2);
-// }
-//
-// static void
-// test_leafrefs(void **state)
-// {
-// struct state *st = (*state);
-// int ret;
-//
-// ly_ctx_set_searchdir(st->ctx, TESTS_DIR"/data/files");
-// assert_non_null(ly_ctx_load_module(st->ctx, "leafrefs2", NULL));
-//
-// st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR"/data/files/leafrefs2.json", LYD_JSON, LYD_OPT_CONFIG | LYD_OPT_STRICT);
-// assert_ptr_not_equal(st->dt1, NULL);
-//
-// ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
-// assert_int_equal(ret, 0);
-//
-// st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
-// assert_ptr_not_equal(st->dt2, NULL);
-//
-// check_data_tree(st->dt1, st->dt2);
-// }
+#if 0
+static void
+test_types(void **state)
+{
+    struct state *st = (*state);
+    int ret;
+
+    ly_ctx_set_searchdir(st->ctx, TESTS_DIR "/data/files");
+    assert_non_null(ly_ctx_load_module(st->ctx, "types", NULL));
+
+    st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR "/data/files/types.xml", LYD_XML, LYD_OPT_CONFIG);
+    assert_ptr_not_equal(st->dt1, NULL);
+
+    ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
+    assert_int_equal(ret, 0);
+
+    st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
+    assert_ptr_not_equal(st->dt2, NULL);
+
+    check_data_tree(st->dt1, st->dt2);
+}
+
+static void
+test_annotations(void **state)
+{
+    struct state *st = (*state);
+    int ret;
+
+    ly_ctx_set_searchdir(st->ctx, TESTS_DIR "/data/files");
+    assert_non_null(ly_ctx_load_module(st->ctx, "annotations", NULL));
+
+    st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR "/data/files/annotations.xml", LYD_XML, LYD_OPT_CONFIG);
+    assert_ptr_not_equal(st->dt1, NULL);
+
+    ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
+    assert_int_equal(ret, 0);
+
+    st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
+    assert_ptr_not_equal(st->dt2, NULL);
+
+    check_data_tree(st->dt1, st->dt2);
+}
+
+static void
+test_similar_annot_names(void **state)
+{
+    struct state *st = (*state);
+    int ret;
+
+    ly_ctx_set_searchdir(st->ctx, TESTS_DIR "/data/files");
+    assert_non_null(ly_ctx_load_module(st->ctx, "annotations", NULL));
+
+    st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR "/data/files/similar-annot-names.xml", LYD_XML, LYD_OPT_CONFIG);
+    assert_ptr_not_equal(st->dt1, NULL);
+
+    ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
+    assert_int_equal(ret, 0);
+
+    st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
+    assert_ptr_not_equal(st->dt2, NULL);
+
+    check_data_tree(st->dt1, st->dt2);
+}
+
+static void
+test_many_child_annot(void **state)
+{
+    struct state *st = (*state);
+    int ret;
+
+    ly_ctx_set_searchdir(st->ctx, TESTS_DIR "/data/files");
+    assert_non_null(ly_ctx_load_module(st->ctx, "annotations", NULL));
+
+    st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR "/data/files/many-childs-annot.xml", LYD_XML, LYD_OPT_CONFIG);
+    assert_ptr_not_equal(st->dt1, NULL);
+
+    ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
+    assert_int_equal(ret, 0);
+
+    st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
+    assert_ptr_not_equal(st->dt2, NULL);
+
+    check_data_tree(st->dt1, st->dt2);
+}
+
+static void
+test_union(void **state)
+{
+    struct state *st = (*state);
+    int ret;
+
+    ly_ctx_set_searchdir(st->ctx, TESTS_DIR "/data/files");
+    assert_non_null(ly_ctx_load_module(st->ctx, "union", NULL));
+
+    st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR "/data/files/union.xml", LYD_XML, LYD_OPT_CONFIG);
+    assert_ptr_not_equal(st->dt1, NULL);
+
+    ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
+    assert_int_equal(ret, 0);
+
+    st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
+    assert_ptr_not_equal(st->dt2, NULL);
+
+    check_data_tree(st->dt1, st->dt2);
+}
+
+static void
+test_union2(void **state)
+{
+    struct state *st = (*state);
+    int ret;
+
+    ly_ctx_set_searchdir(st->ctx, TESTS_DIR "/data/files");
+    assert_non_null(ly_ctx_load_module(st->ctx, "statements", NULL));
+
+    st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR "/data/files/union2.xml", LYD_XML, LYD_OPT_CONFIG);
+    assert_ptr_not_equal(st->dt1, NULL);
+
+    ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
+    assert_int_equal(ret, 0);
+
+    st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
+    assert_ptr_not_equal(st->dt2, NULL);
+
+    check_data_tree(st->dt1, st->dt2);
+}
+
+static void
+test_collisions(void **state)
+{
+    struct state *st = (*state);
+    int ret;
+
+    ly_ctx_set_searchdir(st->ctx, TESTS_DIR "/data/files");
+    assert_non_null(ly_ctx_load_module(st->ctx, "annotations", NULL));
+
+    st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR "/data/files/collisions.xml", LYD_XML, LYD_OPT_CONFIG);
+    assert_ptr_not_equal(st->dt1, NULL);
+
+    ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
+    assert_int_equal(ret, 0);
+
+    st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
+    assert_ptr_not_equal(st->dt2, NULL);
+
+    check_data_tree(st->dt1, st->dt2);
+}
+
+static void
+test_anydata(void **state)
+{
+    struct state *st = (*state);
+    const struct lys_module *mod;
+    int ret;
+    const char *test_anydata =
+            "module test-anydata {"
+            "   namespace \"urn:test-anydata\";"
+            "   prefix ya;"
+            ""
+            "   container cont {"
+            "       anydata ntf;"
+            "   }"
+            "}";
+
+    assert_non_null(ly_ctx_load_module(st->ctx, "ietf-netconf-notifications", NULL));
+
+    st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR "/data/files/ietf-netconf-notifications.json", LYD_JSON, LYD_OPT_NOTIF | LYD_OPT_TRUSTED, NULL);
+    assert_ptr_not_equal(st->dt1, NULL);
+
+/* get notification in LYB format to set as anydata content */
+    ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
+    assert_int_equal(ret, 0);
+
+    lyd_free_withsiblings(st->dt1);
+    st->dt1 = NULL;
+
+/* now comes the real test, test anydata */
+    mod = lys_parse_mem(st->ctx, test_anydata, LYS_YANG);
+    assert_non_null(mod);
+
+    st->dt1 = lyd_new(NULL, mod, "cont");
+    assert_non_null(st->dt1);
+
+    assert_non_null(lyd_new_anydata(st->dt1, NULL, "ntf", st->mem, LYD_ANYDATA_LYBD));
+    st->mem = NULL;
+
+    ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
+    assert_int_equal(ret, 0);
+
+    ret = lyd_validate(&st->dt1, LYD_OPT_CONFIG, NULL);
+    assert_int_equal(ret, 0);
+
+    st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
+    assert_ptr_not_equal(st->dt2, NULL);
+
+    check_data_tree(st->dt1, st->dt2);
+
+/* and also test the embedded notification itself */
+    free(st->mem);
+    ret = lyd_lyb_data_length(((struct lyd_node_anydata *)st->dt1->child)->value.mem);
+    st->mem = malloc(ret);
+    memcpy(st->mem, ((struct lyd_node_anydata *)st->dt1->child)->value.mem, ret);
+
+    lyd_free_withsiblings(st->dt2);
+    st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_NOTIF | LYD_OPT_STRICT | LYD_OPT_NOEXTDEPS, NULL);
+    assert_ptr_not_equal(st->dt2, NULL);
+
+/* parse the JSON again for this comparison */
+    lyd_free_withsiblings(st->dt1);
+    st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR "/data/files/ietf-netconf-notifications.json", LYD_JSON, LYD_OPT_NOTIF | LYD_OPT_TRUSTED, NULL);
+    assert_ptr_not_equal(st->dt1, NULL);
+
+    check_data_tree(st->dt1, st->dt2);
+}
+
+static void
+test_submodule_feature(void **state)
+{
+    struct state *st = (*state);
+    const struct lys_module *mod;
+    int ret;
+
+    ly_ctx_set_searchdir(st->ctx, TESTS_DIR "/data/files");
+    mod = ly_ctx_load_module(st->ctx, "feature-submodule-main", NULL);
+    assert_non_null(mod);
+    assert_int_equal(lys_features_enable(mod, "test-submodule-feature"), 0);
+
+    st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR "/data/files/test-submodule-feature.json", LYD_JSON, LYD_OPT_CONFIG);
+    assert_ptr_not_equal(st->dt1, NULL);
+
+    ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
+    assert_int_equal(ret, 0);
+
+    st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
+    assert_ptr_not_equal(st->dt2, NULL);
+
+    check_data_tree(st->dt1, st->dt2);
+}
+
+static void
+test_coliding_augments(void **state)
+{
+    struct state *st = (*state);
+    int ret;
+
+    ly_ctx_set_searchdir(st->ctx, TESTS_DIR "/data/files");
+    assert_non_null(ly_ctx_load_module(st->ctx, "augment-target", NULL));
+    assert_non_null(ly_ctx_load_module(st->ctx, "augment0", NULL));
+    assert_non_null(ly_ctx_load_module(st->ctx, "augment1", NULL));
+
+    st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR "/data/files/augment.xml", LYD_XML, LYD_OPT_CONFIG);
+    assert_ptr_not_equal(st->dt1, NULL);
+
+    ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
+    assert_int_equal(ret, 0);
+
+    st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
+    assert_ptr_not_equal(st->dt2, NULL);
+
+    check_data_tree(st->dt1, st->dt2);
+}
+
+static void
+test_leafrefs(void **state)
+{
+    struct state *st = (*state);
+    int ret;
+
+    ly_ctx_set_searchdir(st->ctx, TESTS_DIR "/data/files");
+    assert_non_null(ly_ctx_load_module(st->ctx, "leafrefs2", NULL));
+
+    st->dt1 = lyd_parse_path(st->ctx, TESTS_DIR "/data/files/leafrefs2.json", LYD_JSON, LYD_OPT_CONFIG | LYD_OPT_STRICT);
+    assert_ptr_not_equal(st->dt1, NULL);
+
+    ret = lyd_print_mem(&st->mem, st->dt1, LYD_LYB, LYP_WITHSIBLINGS);
+    assert_int_equal(ret, 0);
+
+    st->dt2 = lyd_parse_mem(st->ctx, st->mem, LYD_LYB, LYD_OPT_CONFIG | LYD_OPT_STRICT);
+    assert_ptr_not_equal(st->dt2, NULL);
+
+    check_data_tree(st->dt1, st->dt2);
+}
+
+#endif
 
 int
 main(void)

@@ -106,7 +106,6 @@ test_element(void **state)
     ly_in_free(in, 0);
 
     /* no element */
-    // logbuf_clean();
     str = "no data present";
     assert_int_equal(LY_SUCCESS, ly_in_new_memory(str, &in));
     assert_int_equal(LY_EVALID, lyxml_ctx_new(*state, in, &xmlctx));

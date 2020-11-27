@@ -17,16 +17,6 @@
 #include "tests/config.h"
 #include "utests.h"
 
-#define CHECK_PARSE_LYD(INPUT, MODEL) \
-                CHECK_PARSE_LYD_PARAM(INPUT, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, MODEL)
-
-#define CONTEXT_CREATE \
-                CONTEXT_CREATE_PATH(TESTS_DIR_MODULES_YANG); \
-                assert_non_null(ly_ctx_load_module( CONTEXT_GET, "ietf-netconf-acm", "2018-02-14", NULL)); \
-                assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema, LYS_IN_YANG, NULL))
-
-#define CHECK_LYD_STRING(IN_MODEL, TEXT) \
-                CHECK_LYD_STRING_PARAM(IN_MODEL, TEXT, LYD_XML, LYD_PRINT_WITHSIBLINGS)
 
 #define CHECK_PARSE_LYD_DIFF(INPUT_1, INPUT_2, OUT_MODEL) \
                 assert_int_equal(LY_SUCCESS, lyd_diff_siblings(INPUT_1, INPUT_2, 0, &OUT_MODEL));\
@@ -34,30 +24,32 @@
 
 #define TEST_DIFF_3(XML_1, XML_2, XML_3, DIFF_1, DIFF_2, MERGE) \
                 { \
-                    CONTEXT_CREATE;\
+                    CONTEXT_CREATE_PATH(TESTS_DIR_MODULES_YANG);\
+                    assert_non_null(ly_ctx_load_module(CONTEXT_GET, "ietf-netconf-acm", "2018-02-14", NULL));\
+                    assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema, LYS_IN_YANG, NULL));\
     /*decladation*/\
                     struct lyd_node *model_1;\
                     struct lyd_node *model_2;\
                     struct lyd_node *model_3;\
     /*create*/\
-                    CHECK_PARSE_LYD(XML_1, model_1);\
-                    CHECK_PARSE_LYD(XML_2, model_2);\
-                    CHECK_PARSE_LYD(XML_3, model_3);\
+                    CHECK_PARSE_LYD(XML_1, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, model_1);\
+                    CHECK_PARSE_LYD(XML_2, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, model_2);\
+                    CHECK_PARSE_LYD(XML_3, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, model_3);\
     /* diff1 */ \
                     struct lyd_node * diff1;\
                     CHECK_PARSE_LYD_DIFF(model_1, model_2, diff1); \
-                    CHECK_LYD_STRING(diff1, DIFF_1); \
+                    CHECK_LYD_STRING(diff1, DIFF_1, LYD_XML, LYD_PRINT_WITHSIBLINGS); \
                     assert_int_equal(lyd_diff_apply_all(&model_1, diff1), LY_SUCCESS); \
                     CHECK_LYD(model_1, model_2); \
     /* diff2 */ \
                     struct lyd_node * diff2;\
                     CHECK_PARSE_LYD_DIFF(model_2, model_3, diff2); \
-                    CHECK_LYD_STRING(diff2, DIFF_2); \
+                    CHECK_LYD_STRING(diff2, DIFF_2, LYD_XML, LYD_PRINT_WITHSIBLINGS); \
                     assert_int_equal(lyd_diff_apply_all(&model_2, diff2), LY_SUCCESS);\
                     CHECK_LYD(model_2, model_3);\
     /* merge */ \
                     assert_int_equal(lyd_diff_merge_all(&diff1, diff2, 0), LY_SUCCESS);\
-                    CHECK_LYD_STRING(diff1, MERGE); \
+                    CHECK_LYD_STRING(diff1, MERGE, LYD_XML, LYD_PRINT_WITHSIBLINGS); \
     /* CREAR ENV */ \
                     CHECK_FREE_LYD(model_1);\
                     CHECK_FREE_LYD(model_2);\
@@ -259,11 +251,13 @@ test_invalid(void **state)
     (void) state;
     const char *xml = "<df xmlns=\"urn:libyang:tests:defaults\"><foo>42</foo></df>";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(TESTS_DIR_MODULES_YANG);
+    assert_non_null(ly_ctx_load_module(CONTEXT_GET, "ietf-netconf-acm", "2018-02-14", NULL));
+    assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema, LYS_IN_YANG, NULL));
 
     struct lyd_node *model_1;
 
-    CHECK_PARSE_LYD(xml, model_1);
+    CHECK_PARSE_LYD(xml, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, model_1);
 
     struct lyd_node *diff = NULL;
 
@@ -291,13 +285,15 @@ test_same(void **state)
             "</df><hidden xmlns=\"urn:libyang:tests:defaults\">\n"
             "  <foo>42</foo><baz>42</baz></hidden>\n";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(TESTS_DIR_MODULES_YANG);
+    assert_non_null(ly_ctx_load_module(CONTEXT_GET, "ietf-netconf-acm", "2018-02-14", NULL));
+    assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema, LYS_IN_YANG, NULL));
 
     struct lyd_node *model_1;
     struct lyd_node *model_2;
 
-    CHECK_PARSE_LYD(xml, model_1);
-    CHECK_PARSE_LYD(xml, model_2);
+    CHECK_PARSE_LYD(xml, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, model_1);
+    CHECK_PARSE_LYD(xml, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, model_2);
 
     struct lyd_node *diff = NULL;
 
@@ -326,25 +322,27 @@ test_empty1(void **state)
             "  <baz>42</baz>\n"
             "</hidden>\n";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(TESTS_DIR_MODULES_YANG);
+    assert_non_null(ly_ctx_load_module(CONTEXT_GET, "ietf-netconf-acm", "2018-02-14", NULL));
+    assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema, LYS_IN_YANG, NULL));
 
     struct lyd_node *model_1 = NULL;
     struct lyd_node *model_2;
 
-    CHECK_PARSE_LYD(xml_in, model_2);
+    CHECK_PARSE_LYD(xml_in, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, model_2);
 
     struct lyd_node *diff;
 
     CHECK_PARSE_LYD_DIFF(model_1, model_2, diff);
-    CHECK_LYD_STRING(diff,
-            "<df xmlns=\"urn:libyang:tests:defaults\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"create\">\n"
+    const char *result = "<df xmlns=\"urn:libyang:tests:defaults\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"create\">\n"
             "  <foo>42</foo>\n"
             "  <b1_1>42</b1_1>\n"
             "</df>\n"
             "<hidden xmlns=\"urn:libyang:tests:defaults\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"create\">\n"
             "  <foo>42</foo>\n"
             "  <baz>42</baz>\n"
-            "</hidden>\n");
+            "</hidden>\n";
+    CHECK_LYD_STRING(diff, result, LYD_XML, LYD_PRINT_WITHSIBLINGS);
     assert_int_equal(lyd_diff_apply_all(&model_1, diff), LY_SUCCESS);
     CHECK_LYD(model_1, model_2);
 
@@ -366,24 +364,26 @@ test_empty2(void **state)
             "  <baz>42</baz>\n"
             "</hidden>\n";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(TESTS_DIR_MODULES_YANG);
+    assert_non_null(ly_ctx_load_module(CONTEXT_GET, "ietf-netconf-acm", "2018-02-14", NULL));
+    assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema, LYS_IN_YANG, NULL));
 
     struct lyd_node *model_1;
 
-    CHECK_PARSE_LYD(xml, model_1);
+    CHECK_PARSE_LYD(xml, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, model_1);
 
     struct lyd_node *diff;
 
     CHECK_PARSE_LYD_DIFF(model_1, NULL, diff);
-    CHECK_LYD_STRING(diff,
-            "<df xmlns=\"urn:libyang:tests:defaults\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"delete\">\n"
+    const char *result = "<df xmlns=\"urn:libyang:tests:defaults\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"delete\">\n"
             "  <foo>42</foo>\n"
             "  <b1_1>42</b1_1>\n"
             "</df>\n"
             "<hidden xmlns=\"urn:libyang:tests:defaults\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"delete\">\n"
             "  <foo>42</foo>\n"
             "  <baz>42</baz>\n"
-            "</hidden>\n");
+            "</hidden>\n";
+    CHECK_LYD_STRING(diff, result, LYD_XML, LYD_PRINT_WITHSIBLINGS);
 
     assert_int_equal(lyd_diff_apply_all(&model_1, diff), LY_SUCCESS);
     assert_ptr_equal(model_1, NULL);
@@ -399,11 +399,13 @@ test_empty_nested(void **state)
     (void) state;
     const char *xml = "<df xmlns=\"urn:libyang:tests:defaults\"><foo>42</foo></df>";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(TESTS_DIR_MODULES_YANG);
+    assert_non_null(ly_ctx_load_module(CONTEXT_GET, "ietf-netconf-acm", "2018-02-14", NULL));
+    assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema, LYS_IN_YANG, NULL));
 
     struct lyd_node *model_1;
 
-    CHECK_PARSE_LYD(xml, model_1);
+    CHECK_PARSE_LYD(xml, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, model_1);
 
     struct lyd_node *diff = NULL;
 
@@ -413,18 +415,18 @@ test_empty_nested(void **state)
     struct lyd_node *diff1;
 
     CHECK_PARSE_LYD_DIFF(NULL, lyd_child(model_1), diff1);
-    CHECK_LYD_STRING(diff1,
-            "<df xmlns=\"urn:libyang:tests:defaults\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"none\">\n"
+    const char *result = "<df xmlns=\"urn:libyang:tests:defaults\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"none\">\n"
             "  <foo yang:operation=\"create\">42</foo>\n"
-            "</df>\n");
+            "</df>\n";
+    CHECK_LYD_STRING(diff1, result, LYD_XML, LYD_PRINT_WITHSIBLINGS);
 
     struct lyd_node *diff2;
 
     CHECK_PARSE_LYD_DIFF(lyd_child(model_1), NULL, diff2);
-    CHECK_LYD_STRING(diff2,
-            "<df xmlns=\"urn:libyang:tests:defaults\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"none\">\n"
+    result = "<df xmlns=\"urn:libyang:tests:defaults\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"none\">\n"
             "  <foo yang:operation=\"delete\">42</foo>\n"
-            "</df>\n");
+            "</df>\n";
+    CHECK_LYD_STRING(diff2, result, LYD_XML, LYD_PRINT_WITHSIBLINGS);
 
     CHECK_FREE_LYD(model_1);
     CHECK_FREE_LYD(diff1);
@@ -715,7 +717,9 @@ test_wd(void **state)
             "  <dllist>1</dllist>\n"
             "</df>\n";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(TESTS_DIR_MODULES_YANG);
+    assert_non_null(ly_ctx_load_module(CONTEXT_GET, "ietf-netconf-acm", "2018-02-14", NULL));
+    assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema, LYS_IN_YANG, NULL));
     mod = ly_ctx_get_module_implemented(CONTEXT_GET, "defaults");
     assert_non_null(mod);
 
@@ -727,8 +731,8 @@ test_wd(void **state)
     struct lyd_node *model_2;
     struct lyd_node *model_3;
 
-    CHECK_PARSE_LYD_PARAM(xml2, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, model_2);
-    CHECK_PARSE_LYD_PARAM(xml3, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, model_3);
+    CHECK_PARSE_LYD(xml2, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, model_2);
+    CHECK_PARSE_LYD(xml3, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, model_3);
 
     /* diff1 */
     struct lyd_node *diff1 = NULL;
@@ -745,7 +749,7 @@ test_wd(void **state)
             "  <dllist yang:operation=\"create\">4</dllist>\n"
             "</df>\n";
 
-    CHECK_LYD_STRING_PARAM(diff1, diff1_out_1, LYD_XML, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_WD_ALL);
+    CHECK_LYD_STRING(diff1, diff1_out_1, LYD_XML, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_WD_ALL);
     assert_int_equal(lyd_diff_apply_all(&model_1, diff1), LY_SUCCESS);
     CHECK_LYD(model_1, model_2);
 
@@ -754,11 +758,11 @@ test_wd(void **state)
 
     assert_int_equal(lyd_diff_siblings(model_2, model_3, LYD_DIFF_DEFAULTS, &diff2), LY_SUCCESS);
     assert_non_null(diff2);
-    CHECK_LYD_STRING(diff2,
-            "<df xmlns=\"urn:libyang:tests:defaults\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"none\">\n"
+    const char *result = "<df xmlns=\"urn:libyang:tests:defaults\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"none\">\n"
             "  <foo yang:operation=\"replace\" yang:orig-default=\"false\" yang:orig-value=\"41\">42</foo>\n"
             "  <dllist yang:operation=\"create\">1</dllist>\n"
-            "</df>\n");
+            "</df>\n";
+    CHECK_LYD_STRING(diff2, result, LYD_XML, LYD_PRINT_WITHSIBLINGS);
 
     assert_int_equal(lyd_diff_apply_all(&model_2, diff2), LY_SUCCESS);
     CHECK_LYD(model_2, model_3);
@@ -775,7 +779,7 @@ test_wd(void **state)
             "  <dllist yang:operation=\"create\">4</dllist>\n"
             "</df>\n";
 
-    CHECK_LYD_STRING_PARAM(diff1, diff1_out_2, LYD_XML, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_WD_ALL);
+    CHECK_LYD_STRING(diff1, diff1_out_2, LYD_XML, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_WD_ALL);
 
     CHECK_FREE_LYD(model_1);
     CHECK_FREE_LYD(model_2);

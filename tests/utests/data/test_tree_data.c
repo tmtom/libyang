@@ -34,13 +34,6 @@ const char *schema_a = "module a {namespace urn:tests:a;prefix a;yang-version 1.
                 CONTEXT_CREATE_PATH(NULL);\
                 assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema_a, LYS_IN_YANG, NULL))\
 
-
-#define CHECK_PARSE_LYD(INPUT, MODEL) \
-                CHECK_PARSE_LYD_PARAM(INPUT, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, MODEL)
-
-#define CHECK_LYD_STRING(IN_MODEL, TEXT) \
-                CHECK_LYD_STRING_PARAM(IN_MODEL, TEXT, LYD_XML, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK)
-
 #define logbuf_assert(str) \
     { \
         const char * err_msg[]  = {str}; \
@@ -62,8 +55,8 @@ test_compare(void **state)
 
     assert_int_equal(LY_SUCCESS, lyd_compare_single(NULL, NULL, 0));
 
-    CHECK_PARSE_LYD(data1, tree1);
-    CHECK_PARSE_LYD(data2, tree2);
+    CHECK_PARSE_LYD(data1, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
+    CHECK_PARSE_LYD(data2, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree2);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, 0));
     assert_int_equal(LY_ENOT, lyd_compare_single(tree1, tree2, LYD_COMPARE_FULL_RECURSION));
     assert_int_equal(LY_ENOT, lyd_compare_single(((struct lyd_node_inner *)tree1)->child, tree2, 0));
@@ -72,8 +65,8 @@ test_compare(void **state)
 
     data1 = "<l2 xmlns=\"urn:tests:a\"><c><x>a</x></c></l2><l2 xmlns=\"urn:tests:a\"><c><x>b</x></c></l2>";
     data2 = "<l2 xmlns=\"urn:tests:a\"><c><x>b</x></c></l2>";
-    CHECK_PARSE_LYD(data1, tree1);
-    CHECK_PARSE_LYD(data2, tree2);
+    CHECK_PARSE_LYD(data1, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
+    CHECK_PARSE_LYD(data2, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree2);
     assert_int_equal(LY_ENOT, lyd_compare_single(tree1->next, tree2->next, 0));
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1->next->next, tree2->next, 0));
     CHECK_FREE_LYD(tree1);
@@ -81,8 +74,8 @@ test_compare(void **state)
 
     data1 = "<ll xmlns=\"urn:tests:a\">a</ll><ll xmlns=\"urn:tests:a\">b</ll>";
     data2 = "<ll xmlns=\"urn:tests:a\">b</ll>";
-    CHECK_PARSE_LYD(data1, tree1);
-    CHECK_PARSE_LYD(data2, tree2);
+    CHECK_PARSE_LYD(data1, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
+    CHECK_PARSE_LYD(data2, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree2);
     assert_int_equal(LY_ENOT, lyd_compare_single(tree1, tree2, 0));
     assert_int_equal(LY_ENOT, lyd_compare_single(NULL, tree2, 0));
     assert_int_equal(LY_ENOT, lyd_compare_single(tree1, NULL, 0));
@@ -92,8 +85,8 @@ test_compare(void **state)
 
     data1 = "<c xmlns=\"urn:tests:a\"><x>x</x></c>";
     data2 = "<c xmlns=\"urn:tests:a\"><x>y</x></c>";
-    CHECK_PARSE_LYD(data1, tree1);
-    CHECK_PARSE_LYD(data2, tree2);
+    CHECK_PARSE_LYD(data1, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
+    CHECK_PARSE_LYD(data2, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree2);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, 0));
     assert_int_equal(LY_ENOT, lyd_compare_single(tree1, tree2, LYD_COMPARE_FULL_RECURSION));
     CHECK_FREE_LYD(tree1);
@@ -101,8 +94,8 @@ test_compare(void **state)
 
     data1 = "<c xmlns=\"urn:tests:a\"><x>x</x></c>";
     data2 = "<c xmlns=\"urn:tests:a\"><x>x</x><x>y</x></c>";
-    CHECK_PARSE_LYD(data1, tree1);
-    CHECK_PARSE_LYD(data2, tree2);
+    CHECK_PARSE_LYD(data1, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
+    CHECK_PARSE_LYD(data2, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree2);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, 0));
     assert_int_equal(LY_ENOT, lyd_compare_single(tree1, tree2, LYD_COMPARE_FULL_RECURSION));
     CHECK_FREE_LYD(tree1);
@@ -110,12 +103,12 @@ test_compare(void **state)
 
     data1 = "<any xmlns=\"urn:tests:a\"><x>x</x></any>";
     data2 = "<any xmlns=\"urn:tests:a\"><x>x</x><x>y</x></any>";
-    CHECK_PARSE_LYD(data1, tree1);
-    CHECK_PARSE_LYD(data2, tree2);
+    CHECK_PARSE_LYD(data1, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
+    CHECK_PARSE_LYD(data2, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree2);
     assert_int_equal(LY_ENOT, lyd_compare_single(tree1->next, tree2->next, 0));
     CHECK_FREE_LYD(tree1);
     data1 = "<any xmlns=\"urn:tests:a\"><x>x</x><x>y</x></any>";
-    CHECK_PARSE_LYD(data1, tree1);
+    CHECK_PARSE_LYD(data1, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, 0));
     CHECK_FREE_LYD(tree1);
     CHECK_FREE_LYD(tree2);
@@ -133,7 +126,7 @@ test_dup(void **state)
     const char *data = "<l1 xmlns=\"urn:tests:a\"><a>a</a><b>b</b><c>x</c></l1>";
 
     CONTEXT_CREATE;
-    CHECK_PARSE_LYD(data, tree1);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
     assert_int_equal(LY_SUCCESS, lyd_dup_single(tree1, NULL, LYD_DUP_RECURSIVE, &tree2));
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, LYD_COMPARE_FULL_RECURSION));
     CHECK_FREE_LYD(tree1);
@@ -141,43 +134,43 @@ test_dup(void **state)
 
     data = "<l1 xmlns=\"urn:tests:a\"><a>a</a><b>b</b><c>x</c></l1>";
     result = "<l1 xmlns=\"urn:tests:a\"><a>a</a><b>b</b></l1>";
-    CHECK_PARSE_LYD(data, tree1);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
     assert_int_equal(LY_SUCCESS, lyd_dup_single(tree1, NULL, 0, &tree2));
     CHECK_FREE_LYD(tree1);
-    CHECK_PARSE_LYD(result, tree1);
+    CHECK_PARSE_LYD(result, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, LYD_COMPARE_FULL_RECURSION));
     CHECK_FREE_LYD(tree1);
     CHECK_FREE_LYD(tree2);
 
     data = "<l2 xmlns=\"urn:tests:a\"><c><x>a</x></c></l2><l2 xmlns=\"urn:tests:a\"><c><x>b</x></c></l2>";
     result = "<l2 xmlns=\"urn:tests:a\"><c><x>a</x></c></l2>";
-    CHECK_PARSE_LYD(data, tree1);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
     assert_int_equal(LY_SUCCESS, lyd_dup_siblings(tree1, NULL, LYD_DUP_RECURSIVE, &tree2));
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1->next, tree2->next, LYD_COMPARE_FULL_RECURSION));
     CHECK_FREE_LYD(tree2);
     assert_int_equal(LY_SUCCESS, lyd_dup_single(tree1->next, NULL, LYD_DUP_RECURSIVE, &tree2));
     CHECK_FREE_LYD(tree1);
-    CHECK_PARSE_LYD(result, tree1);
+    CHECK_PARSE_LYD(result, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1->next, tree2, LYD_COMPARE_FULL_RECURSION));
     CHECK_FREE_LYD(tree2);
 
     assert_int_equal(LY_SUCCESS, lyd_dup_single(tree1->next, NULL, 0, &tree2));
     CHECK_FREE_LYD(tree1);
     result = "<l2 xmlns=\"urn:tests:a\"/>";
-    CHECK_PARSE_LYD_PARAM(result, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, tree1);
+    CHECK_PARSE_LYD(result, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, tree1);
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, LYD_COMPARE_FULL_RECURSION));
     CHECK_FREE_LYD(tree1);
     CHECK_FREE_LYD(tree2);
 
     data = "<any xmlns=\"urn:tests:a\"><c><a>a</a></c></any>";
-    CHECK_PARSE_LYD(data, tree1);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
     assert_int_equal(LY_SUCCESS, lyd_dup_single(tree1, NULL, 0, &tree2));
     assert_int_equal(LY_SUCCESS, lyd_compare_single(tree1, tree2, LYD_COMPARE_FULL_RECURSION));
     CHECK_FREE_LYD(tree1);
     CHECK_FREE_LYD(tree2);
 
     data = "<l2 xmlns=\"urn:tests:a\"><c><x>b</x></c></l2>";
-    CHECK_PARSE_LYD(data, tree1);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
     assert_int_equal(LY_SUCCESS, lyd_dup_single(((struct lyd_node_inner *)((struct lyd_node_inner *)tree1->next)->child)->child, NULL,
             LYD_DUP_WITH_PARENTS, &tree2));
     int unsigned flag = LYS_CONFIG_R | LYS_SET_ENUM;
@@ -189,7 +182,7 @@ test_dup(void **state)
     CHECK_FREE_LYD(tree2);
 
     data = "<l1 xmlns=\"urn:tests:a\"><a>a</a><b>b</b><c>c</c></l1>";
-    CHECK_PARSE_LYD(data, tree1);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
     assert_int_equal(LY_SUCCESS, lyd_dup_single(((struct lyd_node_inner *)tree1)->child->prev, NULL,
             LYD_DUP_WITH_PARENTS, &tree2));
     flag = LYS_CONFIG_W | LYS_SET_ENUM;
@@ -199,7 +192,7 @@ test_dup(void **state)
     CHECK_FREE_LYD(tree2);
 
     data = "<l2 xmlns=\"urn:tests:a\"><c><x>b</x></c></l2>";
-    CHECK_PARSE_LYD(data, tree1);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
     assert_int_equal(LY_SUCCESS, lyd_dup_single(tree1->next, NULL, 0, &tree2));
     assert_int_equal(LY_SUCCESS, lyd_dup_single(((struct lyd_node_inner *)((struct lyd_node_inner *)tree1->next)->child)->child,
             (struct lyd_node_inner *)tree2, LYD_DUP_WITH_PARENTS, NULL));
@@ -209,7 +202,7 @@ test_dup(void **state)
 
     /* invalid */
     data = "<l1 xmlns=\"urn:tests:a\"><a>a</a><b>b</b><c>c</c></l1><l2 xmlns=\"urn:tests:a\"><c><x>b</x></c></l2>";
-    CHECK_PARSE_LYD(data, tree1);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree1);
     assert_int_equal(LY_EINVAL, lyd_dup_single(((struct lyd_node_inner *)tree1)->child->prev,
             (struct lyd_node_inner *)tree1->next, LYD_DUP_WITH_PARENTS, NULL));
     CHECK_FREE_LYD(tree1);
@@ -243,7 +236,7 @@ test_target(void **state)
 
     CONTEXT_CREATE;
 
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_int_equal(LY_SUCCESS, ly_path_parse(CONTEXT_GET, NULL, path_str, strlen(path_str), LY_PATH_BEGIN_EITHER, LY_PATH_LREF_FALSE,
             LY_PATH_PREFIX_OPTIONAL, LY_PATH_PRED_SIMPLE, &exp));
     assert_int_equal(LY_SUCCESS, ly_path_compile(CONTEXT_GET, NULL, NULL, exp, LY_PATH_LREF_FALSE, LY_PATH_OPER_INPUT,

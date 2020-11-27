@@ -33,16 +33,10 @@
                 assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema_a, LYS_IN_YANG, NULL))\
 
 
-#define CHECK_PARSE_LYD(INPUT, PARSE_OPTION, MODEL) \
-                CHECK_PARSE_LYD_PARAM(INPUT, LYD_JSON, PARSE_OPTION, LYD_VALIDATE_PRESENT, LY_SUCCESS, MODEL)
-
 #define PARSER_CHECK_ERROR(INPUT, PARSE_OPTION, MODEL, RET_VAL, ERR_MESSAGE, ERR_PATH) \
                 assert_int_equal(RET_VAL, lyd_parse_data_mem(CONTEXT_GET, data, LYD_JSON, PARSE_OPTION, LYD_VALIDATE_PRESENT, &MODEL));\
                 CHECK_CTX_ERROR(CONTEXT_GET, ERR_MESSAGE, ERR_PATH);\
                 assert_null(MODEL)
-
-#define CHECK_LYD_STRING(IN_MODEL, TEXT) \
-                CHECK_LYD_STRING_PARAM(IN_MODEL, TEXT, LYD_JSON, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS)
 
 const char *schema_a = "module a {namespace urn:tests:a;prefix a;yang-version 1.1; import ietf-yang-metadata {prefix md;}"
         "md:annotation hint { type int8;}"
@@ -74,7 +68,7 @@ test_leaf(void **state)
 
     CONTEXT_CREATE;
 
-    CHECK_PARSE_LYD(data, 0,  tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     flag = LYS_CONFIG_W | LYS_STATUS_CURR;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "foo", 1, LYS_LEAF, 0, 0, NULL, 0);
     leaf = (struct lyd_node_term *)tree;
@@ -87,12 +81,12 @@ test_leaf(void **state)
     CHECK_LYD_VALUE(leaf->value, STRING, "default-val");
     assert_true(leaf->flags & LYD_DEFAULT);
 
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     /* make foo2 explicit */
     data = "{\"a:foo2\":\"default-val\"}";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     flag = 0x205;
@@ -101,12 +95,12 @@ test_leaf(void **state)
     CHECK_LYD_VALUE(leaf->value, STRING, "default-val");
     assert_false(leaf->flags & LYD_DEFAULT);
 
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     /* parse foo2 but make it implicit */
     data = "{\"a:foo2\":\"default-val\",\"@a:foo2\":{\"ietf-netconf-with-defaults:default\":true}}";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "foo2", 1, LYS_LEAF, 0, 0, NULL, 0);
@@ -123,14 +117,15 @@ test_leaf(void **state)
 
     /* multiple meatadata hint and unknown metadata xxx supposed to be skipped since it is from missing schema */
     data = "{\"@a:foo\":{\"a:hint\":1,\"a:hint\":2,\"x:xxx\":{\"value\":\"/x:no/x:yes\"}},\"a:foo\":\"xxx\"}";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     flag = 0x5;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "foo", 1, LYS_LEAF, 0, 0, NULL, 0);
     CHECK_LYD_META(tree->meta, 1, "hint", 1, 1,  INT8, "1", 1);
     CHECK_LYD_META(tree->meta->next, 1, "hint", 0, 1,  INT8, "2", 2);
     assert_null(tree->meta->next->next);
 
-    CHECK_LYD_STRING(tree, "{\"a:foo\":\"xxx\",\"@a:foo\":{\"a:hint\":1,\"a:hint\":2}}");
+    const char *result = "{\"a:foo\":\"xxx\",\"@a:foo\":{\"a:hint\":1,\"a:hint\":2}}";
+    CHECK_LYD_STRING(tree, result, LYD_JSON, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     err_msg[0] = "Unknown (or not implemented) YANG module \"x\" for metadata \"x:xxx\".";
@@ -164,7 +159,7 @@ test_leaflist(void **state)
 
     CONTEXT_CREATE;
 
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     flag = LYS_CONFIG_W | LYS_STATUS_CURR | LYS_SET_RANGE;
@@ -178,12 +173,12 @@ test_leaflist(void **state)
     ll = (struct lyd_node_term *)tree->next;
     CHECK_LYD_VALUE(ll->value, UINT8, "11", 11);
 
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     /* simple metadata */
     data = "{\"a:ll1\":[10,11],\"@a:ll1\":[null,{\"a:hint\":2}]}";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     flag = 0x85;
@@ -199,12 +194,12 @@ test_leaflist(void **state)
     CHECK_LYD_META(ll->meta, 1, "hint", 0, 1,  INT8, "2", 2);
     assert_null(ll->meta->next);
 
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     /* multiple meatadata hint and unknown metadata xxx supposed to be skipped since it is from missing schema */
     data = "{\"@a:ll1\" : [{\"a:hint\" : 1, \"x:xxx\" :  { \"value\" : \"/x:no/x:yes\" }, \"a:hint\" : 10},null,{\"a:hint\" : 3}], \"a:ll1\" : [1,2,3]}";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "ll1", 1, LYS_LEAFLIST, 0, 0, NULL, 0);
@@ -226,7 +221,8 @@ test_leaflist(void **state)
     CHECK_LYD_META(ll->meta, 1, "hint", 0, 1,  INT8, "3", 3);
     assert_null(ll->meta->next);
 
-    CHECK_LYD_STRING(tree, "{\"a:ll1\":[1,2,3],\"@a:ll1\":[{\"a:hint\":1,\"a:hint\":10},null,{\"a:hint\":3}]}");
+    const char *result = "{\"a:ll1\":[1,2,3],\"@a:ll1\":[{\"a:hint\":1,\"a:hint\":10},null,{\"a:hint\":3}]}";
+    CHECK_LYD_STRING(tree, result, LYD_JSON, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS)
     CHECK_FREE_LYD(tree);
 
     /* missing referenced metadata node */
@@ -263,12 +259,12 @@ test_anydata(void **state)
     CONTEXT_CREATE;
 
     data = "{\"a:any\":{\"x:element1\":{\"element2\":\"/a:some/a:path\",\"list\":[{},{\"key\":\"a\"}]}}}";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     flag = LYS_SET_ENUM | LYS_CONFIG_R | LYS_YIN_ARGUMENT;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "any", 1, LYS_ANYDATA, 0, 0, NULL, 0);
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     CONTEXT_DESTROY;
@@ -288,7 +284,7 @@ test_list(void **state)
     CONTEXT_CREATE;
 
     /* check hashes */
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     flag = LYS_CONFIG_W | LYS_STATUS_CURR | LYS_SET_RANGE;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "l1", 1, LYS_LIST, 0, 0, NULL, 0);
     list = (struct lyd_node_inner *)tree;
@@ -296,7 +292,7 @@ test_list(void **state)
         assert_int_not_equal(0, iter->hash);
     }
 
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     /* missing keys */
@@ -326,7 +322,7 @@ test_list(void **state)
 
     /* keys order, in contrast to XML, JSON accepts keys in any order even in strict mode */
     data = "{ \"a:l1\": [ {\"d\" : \"d\", \"a\" : \"a\", \"c\" : 1, \"b\" : \"b\"}]}";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     flag = 0x85;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "l1", 1, LYS_LIST, 0, 0, NULL, 0);
     list = (struct lyd_node_inner *)tree;
@@ -342,12 +338,13 @@ test_list(void **state)
     CHECK_LYSC_NODE(leaf->schema, NULL, 0, flag, 1, "d", 0, LYS_LEAF, 1, 0, NULL, 0);
     CHECK_CTX_ERROR_NONE(CONTEXT_GET);
 
-    CHECK_LYD_STRING(tree, "{\"a:l1\":[{\"a\":\"a\",\"b\":\"b\",\"c\":1,\"d\":\"d\"}]}");
+    const char *result = "{\"a:l1\":[{\"a\":\"a\",\"b\":\"b\",\"c\":1,\"d\":\"d\"}]}";
+    CHECK_LYD_STRING(tree, result, LYD_JSON, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     /*  */
     data = "{\"a:l1\":[{\"c\":1,\"b\":\"b\",\"a\":\"a\"}]}";
-    CHECK_PARSE_LYD(data, LYD_PARSE_STRICT, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, LYD_PARSE_STRICT, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     flag = 0x85;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "l1", 1, LYS_LIST, 0, 0, NULL, 0);
     list = (struct lyd_node_inner *)tree;
@@ -360,11 +357,12 @@ test_list(void **state)
     CHECK_LYSC_NODE(leaf->schema, NULL, 0, flag, 1, "c", 1, LYS_LEAF, 1, 0, NULL, 0);
     CHECK_CTX_ERROR_NONE(CONTEXT_GET);
 
-    CHECK_LYD_STRING(tree, "{\"a:l1\":[{\"a\":\"a\",\"b\":\"b\",\"c\":1}]}");
+    result = "{\"a:l1\":[{\"a\":\"a\",\"b\":\"b\",\"c\":1}]}";
+    CHECK_LYD_STRING(tree, result, LYD_JSON, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     data = "{\"a:cp\":{\"@\":{\"a:hint\":1}}}";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     flag = 0x85;
@@ -372,7 +370,7 @@ test_list(void **state)
     CHECK_LYD_META(tree->meta, 1, "hint", 0, 1,  INT8, "1", 1);
     assert_null(tree->meta->next);
 
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     CONTEXT_DESTROY;
@@ -390,17 +388,17 @@ test_container(void **state)
 
     CONTEXT_CREATE;
 
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     flag = 0x5;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "c", 1, LYS_CONTAINER, 0, 0, NULL, 0);
     cont = (struct lyd_node_inner *)tree;
     assert_true(cont->flags & LYD_DEFAULT);
 
-    CHECK_LYD_STRING(tree, "{}");
+    CHECK_LYD_STRING(tree, "{}", LYD_JSON, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     data = "{\"a:cp\":{}}";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     flag = 0x85;
@@ -408,7 +406,7 @@ test_container(void **state)
     cont = (struct lyd_node_inner *)tree;
     assert_false(cont->flags & LYD_DEFAULT);
 
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     CONTEXT_DESTROY;
@@ -433,9 +431,9 @@ test_opaq(void **state)
     PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     /* opaq flag */
-    CHECK_PARSE_LYD(data, LYD_PARSE_OPAQ, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, LYD_PARSE_OPAQ, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0, LY_PREF_JSON, "foo3", 0, 0, NULL,  0,  "");
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     /* missing key, no flags */
@@ -445,9 +443,9 @@ test_opaq(void **state)
     PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     /* opaq flag */
-    CHECK_PARSE_LYD(data, LYD_PARSE_OPAQ, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, LYD_PARSE_OPAQ, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0x1, LY_PREF_JSON, "l1", 0, 0, NULL,  0,  "");
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     /* invalid key, no flags */
@@ -457,21 +455,21 @@ test_opaq(void **state)
     PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     /* opaq flag */
-    CHECK_PARSE_LYD(data, LYD_PARSE_OPAQ, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, LYD_PARSE_OPAQ, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0x1, LY_PREF_JSON, "l1", 0, 0, NULL,  0,  "");
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     data = "{\"a:l1\":[{\"a\":\"val_a\",\"b\":\"val_b\",\"c\":{\"val\":\"val_c\"}}]}";
-    CHECK_PARSE_LYD(data, LYD_PARSE_OPAQ, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, LYD_PARSE_OPAQ, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0x1, LY_PREF_JSON, "l1", 0, 0, NULL,  0,  "");
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     data = "{\"a:l1\":[{\"a\":\"val_a\",\"b\":\"val_b\"}]}";
-    CHECK_PARSE_LYD(data, LYD_PARSE_OPAQ, tree);
+    CHECK_PARSE_LYD(data, LYD_JSON, LYD_PARSE_OPAQ, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0x1, LY_PREF_JSON, "l1", 0, 0, NULL,  0,  "");
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     CONTEXT_DESTROY;
@@ -531,7 +529,7 @@ test_rpc(void **state)
     /* l1 key c has invalid value so it is at the end */
     CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)node, 0x1, 0x1, LY_PREF_JSON, "l1", 0, 0, NULL,  0,  "");
 
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     /* wrong namespace, element name, whatever... */
@@ -565,7 +563,7 @@ test_action(void **state)
     node = lyd_child(tree);
     CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)node, 0, 0x1, LY_PREF_JSON, "action", 0, 0, NULL,  0,  "");
 
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     /* wrong namespace, element name, whatever... */
@@ -601,7 +599,7 @@ test_notification(void **state)
     flag = 0x5;
     CHECK_LYSC_NODE(node->schema, NULL, 0, flag, 1, "c", 1, LYS_CONTAINER, 0, 0, NULL, 0);
 
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     /* top-level notif without envelope */
@@ -616,7 +614,7 @@ test_notification(void **state)
     assert_non_null(tree);
     assert_ptr_equal(ntf, tree);
 
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_JSON, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
     CHECK_FREE_LYD(tree);
 
     CONTEXT_DESTROY;
@@ -662,8 +660,10 @@ test_reply(void **state)
     CHECK_LYSC_NODE(node->schema, NULL, 0, flag, 1, "c", 1, LYS_CONTAINER, 0, 0, NULL, 0);
 
     /* TODO print only rpc-reply node and then output subtree */
-    CHECK_LYD_STRING(lyd_child(op), "{\"a:al\":25}");
-    CHECK_LYD_STRING(lyd_child(tree), "{\"a:c\":{\"act\":{\"al\":25}}}");
+    const char *result = "{\"a:al\":25}"; 
+    CHECK_LYD_STRING(lyd_child(op), result, LYD_JSON, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
+    result = "{\"a:c\":{\"act\":{\"al\":25}}}";
+    CHECK_LYD_STRING(lyd_child(tree), result, LYD_JSON, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     /* wrong namespace, element name, whatever... */

@@ -58,7 +58,7 @@
  * @param[out] OUT_NODE Resulting data tree built from the input data. Note that NULL can be a valid result as a representation of an empty YANG data tree.
  * The returned data are expected to be freed using LYD_TREE_DESTROY().
  */
-#define CHECK_PARSE_LYD_PARAM(INPUT, INPUT_FORMAT, PARSE_OPTIONS, VALIDATE_OPTIONS, OUT_STATUS, OUT_NODE) \
+#define CHECK_PARSE_LYD(INPUT, INPUT_FORMAT, PARSE_OPTIONS, VALIDATE_OPTIONS, OUT_STATUS, OUT_NODE) \
     assert_int_equal(OUT_STATUS, lyd_parse_data_mem(ly_context, INPUT, INPUT_FORMAT, PARSE_OPTIONS, VALIDATE_OPTIONS, &OUT_NODE)); \
     if (OUT_STATUS ==  LY_SUCCESS) { \
         assert_non_null(OUT_NODE); \
@@ -81,7 +81,7 @@
  * @param[in] FORMAT format of input text. LYD_JSON, LYD_XML
  * @param[in] PARAM  options [Data printer flags](@ref dataprinterflags).
  */
-#define CHECK_LYD_STRING_PARAM(NODE, TEXT, FORMAT, PARAM) \
+#define CHECK_LYD_STRING(NODE, TEXT, FORMAT, PARAM) \
     { \
         char *test; \
         lyd_print_mem(&test, NODE, FORMAT, PARAM); \
@@ -291,7 +291,7 @@
     assert_non_null(NODE); \
     CHECK_STRING((NODE)->dsc, DSC); \
     CHECK_ARRAY((NODE)->exts, EXTS); \
-    /*assert_non_null((NODE)->module); // ?? it is mandatory but in some test it doesnt work */ \
+    /*assert_non_null((NODE)->module); TODO: it is mandatory but in some test it doesnt work */ \
     assert_string_equal((NODE)->name, NAME); \
     assert_string_equal((NODE)->prefix, PREFIX); \
     CHECK_STRING((NODE)->ref, REF); \

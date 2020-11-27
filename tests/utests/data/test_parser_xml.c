@@ -54,17 +54,10 @@ const char *schema_a =
                 assert_non_null(ly_ctx_load_module(CONTEXT_GET, "ietf-netconf-with-defaults", "2011-06-01", NULL));\
                 assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema_a, LYS_IN_YANG, NULL))\
 
-
-#define CHECK_PARSE_LYD(INPUT, PARSE_OPTION, MODEL) \
-                CHECK_PARSE_LYD_PARAM(INPUT, LYD_XML, PARSE_OPTION, LYD_VALIDATE_PRESENT, LY_SUCCESS, MODEL)
-
 #define PARSER_CHECK_ERROR(INPUT, PARSE_OPTION, MODEL, RET_VAL, ERR_MESSAGE, ERR_PATH) \
                 assert_int_equal(RET_VAL, lyd_parse_data_mem(CONTEXT_GET, data, LYD_XML, PARSE_OPTION, LYD_VALIDATE_PRESENT, &MODEL));\
                 CHECK_CTX_ERROR(CONTEXT_GET, ERR_MESSAGE, ERR_PATH);\
                 assert_null(MODEL)
-
-#define CHECK_LYD_STRING(IN_MODEL, TEXT) \
-                CHECK_LYD_STRING_PARAM(IN_MODEL, TEXT, LYD_XML, LYD_PRINT_WITHSIBLINGS)
 
 #define logbuf_assert(str)\
     {\
@@ -87,7 +80,7 @@ test_leaf(void **state)
 
     CONTEXT_CREATE;
 
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     flag = 0x5;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "foo", 1, LYS_LEAF, 0, 0, NULL, 0);
     leaf = (struct lyd_node_term *)tree;
@@ -103,7 +96,7 @@ test_leaf(void **state)
 
     /* make foo2 explicit */
     data = "<foo2 xmlns=\"urn:tests:a\">default-val</foo2>";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     flag = 0x205;
@@ -116,7 +109,7 @@ test_leaf(void **state)
 
     /* parse foo2 but make it implicit, skip metadata xxx from missing schema */
     data = "<foo2 xmlns=\"urn:tests:a\" xmlns:wd=\"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults\" wd:default=\"true\" xmlns:x=\"urn:x\" x:xxx=\"false\">default-val</foo2>";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     flag = 0x205;
@@ -148,7 +141,7 @@ test_anydata(void **state)
             "  </element1>\n"
             "  <element1a/>\n"
             "</any>\n";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     flag = 0x806;
@@ -161,7 +154,7 @@ test_anydata(void **state)
             "  <element1a/>\n"
             "</any>\n";
 
-    CHECK_LYD_STRING(tree, data_expected);
+    CHECK_LYD_STRING(tree, data_expected, LYD_XML, LYD_PRINT_WITHSIBLINGS);
 
     CHECK_FREE_LYD(tree);
     CONTEXT_DESTROY;
@@ -183,7 +176,7 @@ test_list(void **state)
     /* check hashes */
     CONTEXT_CREATE;
 
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     flag = 0x85;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "l1", 1, LYS_LIST, 0, 0, NULL, 0);
     list = (struct lyd_node_inner *)tree;
@@ -216,7 +209,7 @@ test_list(void **state)
 
     /* keys order */
     data = "<l1 xmlns=\"urn:tests:a\"><d>d</d><a>a</a><c>1</c><b>b</b></l1>";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     flag = 0x85;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "l1", 1, LYS_LIST, 0, 0, NULL, 0);
     list = (struct lyd_node_inner *)tree;
@@ -236,7 +229,7 @@ test_list(void **state)
     CHECK_FREE_LYD(tree);
 
     data = "<l1 xmlns=\"urn:tests:a\"><c>1</c><b>b</b><a>a</a></l1>";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     flag = 0x85;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "l1", 1, LYS_LIST, 0, 0, NULL, 0);
     list = (struct lyd_node_inner *)tree;
@@ -268,7 +261,7 @@ test_container(void **state)
     int unsigned flag;
 
     CONTEXT_CREATE;
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     flag = 0x5;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, flag, 1, "c", 1, LYS_CONTAINER, 0, 0, NULL, 0);
     cont = (struct lyd_node_inner *)tree;
@@ -276,7 +269,7 @@ test_container(void **state)
     CHECK_FREE_LYD(tree);
 
     data = "<cp xmlns=\"urn:tests:a\"/>";
-    CHECK_PARSE_LYD(data, 0, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     flag = 0x85;
@@ -306,9 +299,10 @@ test_opaq(void **state)
     PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     /* opaq flag */
-    CHECK_PARSE_LYD(data, LYD_PARSE_OPAQ, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, LYD_PARSE_OPAQ, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0, LY_PREF_XML, "foo3", 0, 0, NULL,  0,  "");
-    CHECK_LYD_STRING(tree, "<foo3 xmlns=\"urn:tests:a\"/>\n");
+    const char *result = "<foo3 xmlns=\"urn:tests:a\"/>\n";
+    CHECK_LYD_STRING(tree, result, LYD_XML, LYD_PRINT_WITHSIBLINGS)
     CHECK_FREE_LYD(tree);
 
     /* missing key, no flags */
@@ -322,9 +316,9 @@ test_opaq(void **state)
     PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     /* opaq flag */
-    CHECK_PARSE_LYD(data, LYD_PARSE_OPAQ, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, LYD_PARSE_OPAQ, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0x1, LY_PREF_XML, "l1", 0, 0, NULL,  0,  "");
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_XML, LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     /* invalid key, no flags */
@@ -338,9 +332,9 @@ test_opaq(void **state)
     PARSER_CHECK_ERROR(data, 0, tree, LY_EVALID, err_msg, err_path);
 
     /* opaq flag */
-    CHECK_PARSE_LYD(data, LYD_PARSE_OPAQ, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, LYD_PARSE_OPAQ, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_LYD_NODE_OPAQ((struct lyd_node_opaq *)tree, 0, 0x1, LY_PREF_XML, "l1", 0, 0, NULL,  0,  "");
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_XML, LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     /* opaq flag and fail */
@@ -445,7 +439,7 @@ test_rpc(void **state)
             "  </edit-config>\n"
             "</rpc>\n";
 
-    CHECK_LYD_STRING(tree, str_expected);
+    CHECK_LYD_STRING(tree, str_expected, LYD_XML, LYD_PRINT_WITHSIBLINGS);
 
     CHECK_FREE_LYD(tree);
     CONTEXT_DESTROY;
@@ -500,7 +494,7 @@ test_action(void **state)
             "  </action>\n"
             "</rpc>\n";
 
-    CHECK_LYD_STRING(tree, str_exp);
+    CHECK_LYD_STRING(tree, str_exp, LYD_XML, LYD_PRINT_WITHSIBLINGS);
 
     CHECK_FREE_LYD(tree);
     CONTEXT_DESTROY;
@@ -544,7 +538,7 @@ test_notification(void **state)
     flag = 0x5;
     CHECK_LYSC_NODE(node->schema, NULL, 0, flag, 1, "c", 1, LYS_CONTAINER, 0, 0, NULL, 0);
 
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_XML, LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     /* top-level notif without envelope */
@@ -559,7 +553,7 @@ test_notification(void **state)
     assert_non_null(tree);
     assert_ptr_equal(ntf, tree);
 
-    CHECK_LYD_STRING(tree, data);
+    CHECK_LYD_STRING(tree, data, LYD_XML, LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     CONTEXT_DESTROY;
@@ -615,7 +609,8 @@ test_reply(void **state)
     CHECK_LYSC_NODE(node->schema, NULL, 0, flag, 1, "c", 1, LYS_CONTAINER, 0, 0, NULL, 0);
 
     /* TODO print only rpc-reply node and then output subtree */
-    CHECK_LYD_STRING(lyd_child(op), "<al xmlns=\"urn:tests:a\">25</al>\n");
+    const char *result = "<al xmlns=\"urn:tests:a\">25</al>\n";
+    CHECK_LYD_STRING(lyd_child(op), result, LYD_XML, LYD_PRINT_WITHSIBLINGS)
     CHECK_FREE_LYD(tree);
 
     /* wrong namespace, element name, whatever... */

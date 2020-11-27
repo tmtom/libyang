@@ -74,12 +74,6 @@ const char *schema_b = "module types {namespace urn:tests:types;prefix t;yang-ve
                 assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema_a, LYS_IN_YANG, &(LYD_NODE_1)));  \
                 assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema_b, LYS_IN_YANG, &(LYD_NODE_2)))
 
-#define CHECK_PARSE_LYD(INPUT, MODEL) \
-                CHECK_PARSE_LYD_PARAM(INPUT, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, MODEL)
-
-#define LYD_TREE_CHECK_CHAR(IN_MODEL, TEXT) \
-                LYD_TREE_CHECK_CHAR_PARAM(IN_MODEL, TEXT, LYD_XML, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK)
-
 #define TEST_PATTERN_1(INPUT, SCHEMA_NAME, SCHEMA_NEXT, VALUE_TYPE, ...) \
                 { \
                     struct lyd_node_term *leaf;\
@@ -128,7 +122,7 @@ const char *schema_b = "module types {namespace urn:tests:types;prefix t;yang-ve
 #define TEST_TYPE_ERROR(TYPE, VALUE, ERROR_MSG) \
                         {\
                                 const char *data    = "<" TYPE " xmlns=\"urn:tests:types\">" VALUE "</" TYPE">";\
-                        CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);\
+                        CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);\
                         const char *err_msg[]  = {ERROR_MSG};\
                         const char *err_path[] = {"/types:" TYPE};\
                                 CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);\
@@ -150,7 +144,7 @@ test_int(void **state)
 
     /* valid data */
     data = "<int8 xmlns=\"urn:tests:types\">\n 15 \t\n  </int8>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "int8", 1, INT8, "15", 15);
@@ -191,7 +185,7 @@ test_uint(void **state)
     CONTEXT_CREATE(mod_defs, mod_types);
     /* valid data */
     data = "<uint8 xmlns=\"urn:tests:types\">\n 150 \t\n  </uint8>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "uint8", 1, UINT8, "150", 150);
@@ -209,7 +203,7 @@ test_uint(void **state)
     data = "<uint64 xmlns=\"urn:tests:types\"/>";
     err_msg[0] = "Invalid empty uint64 value.";
     err_path[0] = "/types:uint64";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
     error_msg = "Invalid empty uint64 value.";
     TEST_TYPE_ERROR("uint64", "   ", error_msg);
@@ -236,28 +230,28 @@ test_dec64(void **state)
 
     /* valid data */
     data = "<dec64 xmlns=\"urn:tests:types\">\n +8 \t\n  </dec64>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "dec64", 1, DEC64, "8.0", 80);
     CHECK_FREE_LYD(tree);
 
     data = "<dec64 xmlns=\"urn:tests:types\">8.00</dec64>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "dec64", 1, DEC64, "8.0", 80);
     CHECK_FREE_LYD(tree);
 
     data = "<dec64-norestr xmlns=\"urn:tests:types\">-9.223372036854775808</dec64-norestr>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "dec64-norestr", 1, DEC64, "-9.223372036854775808", INT64_C(-9223372036854775807) - INT64_C(1));
     CHECK_FREE_LYD(tree);
 
     data = "<dec64-norestr xmlns=\"urn:tests:types\">9.223372036854775807</dec64-norestr>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "dec64-norestr", 1, DEC64, "9.223372036854775807", INT64_C(9223372036854775807));
@@ -275,7 +269,7 @@ test_dec64(void **state)
     data = "<dec64 xmlns=\"urn:tests:types\"/>";
     err_msg[0] = "Invalid empty decimal64 value.";
     err_path[0] = "/types:dec64";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
     error_msg = "Invalid empty decimal64 value.";
     TEST_TYPE_ERROR("dec64", "   ", error_msg);
@@ -302,7 +296,7 @@ test_string(void **state)
 
     /* valid data */
     data = "<str xmlns=\"urn:tests:types\">teststring</str>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "str", 1, STRING, "teststring");
@@ -310,7 +304,7 @@ test_string(void **state)
 
     /* multibyte characters (€ encodes as 3-byte UTF8 character, length restriction is 2-5) */
     data = "<str-utf8 xmlns=\"urn:tests:types\">€€</str-utf8>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "str-utf8", 1, STRING, "€€");
@@ -355,14 +349,14 @@ test_bits(void **state)
     data = "<bits xmlns=\"urn:tests:types\">\n two    \t\nzero\n  </bits>";
     const char *bits_array[] = {"zero", "two"};
 
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "bits", 1, BITS, "zero two", bits_array);
     CHECK_FREE_LYD(tree);
 
     data = "<bits xmlns=\"urn:tests:types\">zero  two</bits>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "bits", 1, BITS, "zero two", bits_array);
@@ -402,7 +396,7 @@ test_enums(void **state)
 
     /* valid data */
     data = "<enums xmlns=\"urn:tests:types\">white</enums>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "enums", 1, ENUM, "white", "white");
@@ -440,13 +434,13 @@ test_binary(void **state)
 
     /* valid data (hello) */
     data = "<binary xmlns=\"urn:tests:types\">\n   aGVs\nbG8=  \t\n  </binary>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "binary", 1, BINARY, "aGVs\nbG8=");
     CHECK_FREE_LYD(tree);
     data = "<binary-norestr xmlns=\"urn:tests:types\">TQ==</binary-norestr>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     assert_non_null(tree);
@@ -455,21 +449,21 @@ test_binary(void **state)
 
     /* no data */
     data = "<binary-norestr xmlns=\"urn:tests:types\">\n    \t\n  </binary-norestr>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "binary-norestr", 1, BINARY, "</binary-norestr>");
     CHECK_FREE_LYD(tree);
 
     data = "<binary-norestr xmlns=\"urn:tests:types\"></binary-norestr>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "binary-norestr", 1, BINARY, "");
     CHECK_FREE_LYD(tree);
 
     data = "<binary-norestr xmlns=\"urn:tests:types\"/>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "binary-norestr", 1, BINARY, "");
@@ -512,21 +506,21 @@ test_boolean(void **state)
 
     /* valid data */
     data = "<bool xmlns=\"urn:tests:types\">true</bool>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "bool", 1, BOOL, "true", 1);
     CHECK_FREE_LYD(tree);
 
     data = "<bool xmlns=\"urn:tests:types\">false</bool>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "bool", 1, BOOL, "false", 0);
     CHECK_FREE_LYD(tree);
 
     data = "<tbool xmlns=\"urn:tests:types\">false</tbool>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "tbool", 1, BOOL, "false", 0);
@@ -556,21 +550,21 @@ test_empty(void **state)
 
     /* valid data */
     data = "<empty xmlns=\"urn:tests:types\"></empty>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "empty", 1, EMPTY, "");
     CHECK_FREE_LYD(tree);
 
     data = "<empty xmlns=\"urn:tests:types\"/>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "empty", 1, EMPTY, "");
     CHECK_FREE_LYD(tree);
 
     data = "<tempty xmlns=\"urn:tests:types\"/>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "tempty", 1, EMPTY, "");
@@ -618,7 +612,7 @@ test_identityref(void **state)
 
     /* valid data */
     data = "<ident xmlns=\"urn:tests:types\">gigabit-ethernet</ident>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "ident", 1, IDENT, "types:gigabit-ethernet", "gigabit-ethernet");
@@ -627,7 +621,7 @@ test_identityref(void **state)
     CHECK_FREE_LYD(tree);
 
     data = "<ident xmlns=\"urn:tests:types\" xmlns:x=\"urn:tests:defs\">x:fast-ethernet</ident>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "ident", 1, IDENT, "defs:fast-ethernet", "fast-ethernet");
@@ -642,19 +636,19 @@ test_identityref(void **state)
     data = "<ident xmlns=\"urn:tests:types\" xmlns:x=\"urn:tests:defs\">x:slow-ethernet</ident>";
     err_msg[0] = "Invalid identityref \"x:slow-ethernet\" value - identity not found.";
     err_path[0] = "/types:ident";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<ident xmlns=\"urn:tests:types\" xmlns:x=\"urn:tests:defs\">x:crypto-alg</ident>";
     err_msg[0] = "Invalid identityref \"x:crypto-alg\" value - identity not accepted by the type specification.";
     err_path[0] = "/types:ident";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<ident xmlns=\"urn:tests:types\" xmlns:x=\"urn:tests:unknown\">x:fast-ethernet</ident>";
     err_msg[0] = "Invalid identityref \"x:fast-ethernet\" value - unable to map prefix to YANG schema.";
     err_path[0] = "/types:ident";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     CONTEXT_DESTROY;
@@ -690,7 +684,7 @@ test_instanceid(void **state)
     /* valid data */
     data = "<cont xmlns=\"urn:tests:types\"><leaftarget/></cont>"
             "<xdf:inst xmlns:xdf=\"urn:tests:types\">/xdf:cont/xdf:leaftarget</xdf:inst>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->prev;
     const enum ly_path_pred_type result_1[] = {LY_PATH_PREDTYPE_NONE, LY_PATH_PREDTYPE_NONE};
 
@@ -706,7 +700,7 @@ test_instanceid(void **state)
 
     data = "<list xmlns=\"urn:tests:types\"><id>a</id></list><list xmlns=\"urn:tests:types\"><id>b</id></list>"
             "<xdf:inst xmlns:xdf=\"urn:tests:types\">/xdf:list[xdf:id='b']/xdf:id</xdf:inst>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->prev;
     const enum ly_path_pred_type result_2[] = {LY_PATH_PREDTYPE_LIST, LY_PATH_PREDTYPE_NONE};
 
@@ -719,7 +713,7 @@ test_instanceid(void **state)
 
     data = "<leaflisttarget xmlns=\"urn:tests:types\">1</leaflisttarget><leaflisttarget xmlns=\"urn:tests:types\">2</leaflisttarget>"
             "<xdf:inst xmlns:xdf=\"urn:tests:types\">/xdf:leaflisttarget[.='1']</xdf:inst>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->prev;
     const enum ly_path_pred_type result_3[] = {LY_PATH_PREDTYPE_LEAFLIST};
 
@@ -737,7 +731,7 @@ test_instanceid(void **state)
             "<list_inst xmlns=\"urn:tests:types\"><id xmlns:b=\"urn:tests:types\">/b:leaflisttarget[.='b']</id><value>y</value></list_inst>"
             "<leaflisttarget xmlns=\"urn:tests:types\">a</leaflisttarget><leaflisttarget xmlns=\"urn:tests:types\">b</leaflisttarget>"
             "<a:inst xmlns:a=\"urn:tests:types\">/a:list_inst[a:id=\"/a:leaflisttarget[.='b']\"]/a:value</a:inst>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->prev;
     const enum ly_path_pred_type result_4[] = {LY_PATH_PREDTYPE_LIST, LY_PATH_PREDTYPE_NONE};
 
@@ -755,7 +749,7 @@ test_instanceid(void **state)
 
     data = "<list xmlns=\"urn:tests:types\"><id>a</id></list><list xmlns=\"urn:tests:types\"><id>b</id><value>x</value></list>"
             "<xdf:inst xmlns:xdf=\"urn:tests:types\">/xdf:list[xdf:id='b']/xdf:value</xdf:inst>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->prev;
     const enum ly_path_pred_type result_5[] = {LY_PATH_PREDTYPE_LIST, LY_PATH_PREDTYPE_NONE};
 
@@ -770,7 +764,7 @@ test_instanceid(void **state)
             "<list_inst xmlns=\"urn:tests:types\"><id xmlns:b=\"urn:tests:types\">/b:leaflisttarget[.='b']</id><value>y</value></list_inst>"
             "<leaflisttarget xmlns=\"urn:tests:types\">a</leaflisttarget><leaflisttarget xmlns=\"urn:tests:types\">b</leaflisttarget>"
             "<a:inst xmlns:a=\"urn:tests:types\">/a:list_inst[a:id=\"/a:leaflisttarget[.='a']\"]/a:value</a:inst>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->prev;
     const enum ly_path_pred_type result_6[] = {LY_PATH_PREDTYPE_LIST, LY_PATH_PREDTYPE_NONE};
 
@@ -784,7 +778,7 @@ test_instanceid(void **state)
     data = "<list_ident xmlns=\"urn:tests:types\"><id xmlns:dfs=\"urn:tests:defs\">dfs:ethernet</id><value>x</value></list_ident>"
             "<list_ident xmlns=\"urn:tests:types\"><id xmlns:dfs=\"urn:tests:defs\">dfs:fast-ethernet</id><value>y</value></list_ident>"
             "<a:inst xmlns:a=\"urn:tests:types\" xmlns:d=\"urn:tests:defs\">/a:list_ident[a:id='d:fast-ethernet']/a:value</a:inst>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->prev;
     const enum ly_path_pred_type result_7[] = {LY_PATH_PREDTYPE_LIST, LY_PATH_PREDTYPE_NONE};
 
@@ -798,7 +792,7 @@ test_instanceid(void **state)
     data = "<list2 xmlns=\"urn:tests:types\"><id>types:xxx</id><value>x</value></list2>"
             "<list2 xmlns=\"urn:tests:types\"><id>a:xxx</id><value>y</value></list2>"
             "<a:inst xmlns:a=\"urn:tests:types\">/a:list2[a:id='a:xxx'][a:value='y']/a:value</a:inst>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->prev;
     const enum ly_path_pred_type result_8[] = {LY_PATH_PREDTYPE_LIST, LY_PATH_PREDTYPE_NONE};
 
@@ -812,7 +806,7 @@ test_instanceid(void **state)
     data = "<list xmlns=\"urn:tests:types\"><id>types:xxx</id><value>x</value></list>"
             "<list xmlns=\"urn:tests:types\"><id>a:xxx</id><value>y</value></list>"
             "<a:inst xmlns:a=\"urn:tests:types\">/a:list[a:id='a:xxx']/a:value</a:inst>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->prev;
     const enum ly_path_pred_type result_9[] = {LY_PATH_PREDTYPE_LIST, LY_PATH_PREDTYPE_NONE};
 
@@ -827,7 +821,7 @@ test_instanceid(void **state)
             "<list2 xmlns=\"urn:tests:types\"><id>c</id><value>b</value></list2>"
             "<list2 xmlns=\"urn:tests:types\"><id>a</id><value>b</value></list2>"
             "<a:inst xmlns:a=\"urn:tests:types\">/a:list2[a:id='a'][a:value='b']/a:id</a:inst>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->prev;
     const enum ly_path_pred_type result_10[] = {LY_PATH_PREDTYPE_LIST, LY_PATH_PREDTYPE_NONE};
 
@@ -846,118 +840,118 @@ test_instanceid(void **state)
             "<xdf:inst xmlns:xdf=\"urn:tests:types\">/xdf:list[2]/xdf:value</xdf:inst>";
     err_msg[0] = "Invalid instance-identifier \"/xdf:list[2]/xdf:value\" value - semantic error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<t:inst xmlns:t=\"urn:tests:types\">/t:cont/t:1leaftarget</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont/t:1leaftarget\" value - syntax error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<t:inst xmlns:t=\"urn:tests:types\">/t:cont:t:1leaftarget</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont:t:1leaftarget\" value - syntax error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<t:inst xmlns:t=\"urn:tests:types\">/t:cont/t:invalid/t:path</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont/t:invalid/t:path\" value - semantic error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<inst xmlns=\"urn:tests:types\" xmlns:t=\"urn:tests:invalid\">/t:cont/t:leaftarget</inst>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont/t:leaftarget\" value - semantic error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     error_msg = "Invalid instance-identifier \"/cont/leaftarget\" value - syntax error.";
     TEST_TYPE_ERROR("inst", "/cont/leaftarget", error_msg);
 
-/// * instance-identifier is here in JSON format because it is already in internal representation without canonical prefixes */
+    /* instance-identifier is here in JSON format because it is already in internal representation without canonical prefixes */
     data = "<cont xmlns=\"urn:tests:types\"/><t:inst xmlns:t=\"urn:tests:types\">/t:cont/t:leaftarget</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/types:cont/leaftarget\" value - required instance not found.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_ENOTFOUND, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_ENOTFOUND, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
     /* instance-identifier is here in JSON format because it is already in internal representation without canonical prefixes */
 
     data = "<t:inst xmlns:t=\"urn:tests:types\">/t:cont/t:leaftarget</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/types:cont/leaftarget\" value - required instance not found.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_ENOTFOUND, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_ENOTFOUND, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<leaflisttarget xmlns=\"urn:tests:types\">x</leaflisttarget><t:inst xmlns:t=\"urn:tests:types\">/t:leaflisttarget[1</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/t:leaflisttarget[1\" value - syntax error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<cont xmlns=\"urn:tests:types\"/><t:inst xmlns:t=\"urn:tests:types\">/t:cont[1]</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont[1]\" value - semantic error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<cont xmlns=\"urn:tests:types\"/><t:inst xmlns:t=\"urn:tests:types\">[1]</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"[1]\" value - syntax error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<cont xmlns=\"urn:tests:types\"><leaflisttarget>1</leaflisttarget></cont><t:inst xmlns:t=\"urn:tests:types\">/t:cont/t:leaflisttarget[id='1']</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont/t:leaflisttarget[id='1']\" value - syntax error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<cont xmlns=\"urn:tests:types\"><leaflisttarget>1</leaflisttarget></cont>"
             "<t:inst xmlns:t=\"urn:tests:types\">/t:cont/t:leaflisttarget[t:id='1']</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont/t:leaflisttarget[t:id='1']\" value - semantic error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<cont xmlns=\"urn:tests:types\"><leaflisttarget>1</leaflisttarget><leaflisttarget>2</leaflisttarget></cont>"
             "<t:inst xmlns:t=\"urn:tests:types\">/t:cont/t:leaflisttarget[4]</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont/t:leaflisttarget[4]\" value - semantic error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<t:inst-noreq xmlns:t=\"urn:tests:types\">/t:cont/t:leaflisttarget[6]</t:inst-noreq>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont/t:leaflisttarget[6]\" value - semantic error.";
     err_path[0] = "/types:inst-noreq";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<cont xmlns=\"urn:tests:types\"><listtarget><id>1</id><value>x</value></listtarget></cont>"
             "<t:inst xmlns:t=\"urn:tests:types\">/t:cont/t:listtarget[t:value='x']</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont/t:listtarget[t:value='x']\" value - semantic error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<t:inst-noreq xmlns:t=\"urn:tests:types\">/t:cont/t:listtarget[t:value='x']</t:inst-noreq>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont/t:listtarget[t:value='x']\" value - semantic error.";
     err_path[0] = "/types:inst-noreq";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<t:inst-noreq xmlns:t=\"urn:tests:types\">/t:cont/t:listtarget[t:x='x']</t:inst-noreq>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont/t:listtarget[t:x='x']\" value - semantic error.";
     err_path[0] = "/types:inst-noreq";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_ENOTFOUND, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_ENOTFOUND, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<cont xmlns=\"urn:tests:types\"><listtarget><id>1</id><value>x</value></listtarget></cont>"
             "<t:inst xmlns:t=\"urn:tests:types\">/t:cont/t:listtarget[.='x']</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont/t:listtarget[.='x']\" value - semantic error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     /* instance-identifier is here in JSON format because it is already in internal representation without canonical prefixes */
@@ -965,21 +959,21 @@ test_instanceid(void **state)
             "<t:inst xmlns:t=\"urn:tests:types\">/t:cont/t:leaflisttarget[.='2']</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/types:cont/leaflisttarget[.='2']\" value - required instance not found.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_ENOTFOUND, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_ENOTFOUND, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<cont xmlns=\"urn:tests:types\"><leaflisttarget>1</leaflisttarget></cont>"
             "<t:inst xmlns:t=\"urn:tests:types\">/t:cont/t:leaflisttarget[.='x']</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont/t:leaflisttarget[.='x']\" value - semantic error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<cont xmlns=\"urn:tests:types\"><listtarget><id>1</id><value>x</value></listtarget></cont>"
             "<t:inst xmlns:t=\"urn:tests:types\">/t:cont/t:listtarget[t:id='x']</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/t:cont/t:listtarget[t:id='x']\" value - semantic error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     /* instance-identifier is here in JSON format because it is already in internal representation without canonical prefixes */
@@ -987,7 +981,7 @@ test_instanceid(void **state)
             "<t:inst xmlns:t=\"urn:tests:types\">/t:cont/t:listtarget[t:id='2']</t:inst>";
     err_msg[0] = "Invalid instance-identifier \"/types:cont/listtarget[id='2']\" value - required instance not found.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_ENOTFOUND, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_ENOTFOUND, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<leaflisttarget xmlns=\"urn:tests:types\">a</leaflisttarget>"
@@ -995,7 +989,7 @@ test_instanceid(void **state)
             "<a:inst xmlns:a=\"urn:tests:types\">/a:leaflisttarget[1][2]</a:inst>";
     err_msg[0] = "Invalid instance-identifier \"/a:leaflisttarget[1][2]\" value - syntax error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<leaflisttarget xmlns=\"urn:tests:types\">a</leaflisttarget>"
@@ -1003,7 +997,7 @@ test_instanceid(void **state)
             "<a:inst xmlns:a=\"urn:tests:types\">/a:leaflisttarget[.='a'][.='b']</a:inst>";
     err_msg[0] = "Invalid instance-identifier \"/a:leaflisttarget[.='a'][.='b']\" value - syntax error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<list xmlns=\"urn:tests:types\"><id>a</id><value>x</value></list>"
@@ -1011,7 +1005,7 @@ test_instanceid(void **state)
             "<a:inst xmlns:a=\"urn:tests:types\">/a:list[a:id='a'][a:id='b']/a:value</a:inst>";
     err_msg[0] = "Invalid instance-identifier \"/a:list[a:id='a'][a:id='b']/a:value\" value - syntax error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<list2 xmlns=\"urn:tests:types\"><id>a</id><value>x</value></list2>"
@@ -1019,16 +1013,16 @@ test_instanceid(void **state)
             "<a:inst xmlns:a=\"urn:tests:types\">/a:list2[a:id='a']/a:value</a:inst>";
     err_msg[0] = "Invalid instance-identifier \"/a:list2[a:id='a']/a:value\" value - semantic error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
-/// * check for validting instance-identifier with a complete data tree */
+    /* check for validting instance-identifier with a complete data tree */
     data = "<list2 xmlns=\"urn:tests:types\"><id>a</id><value>a</value></list2>"
             "<list2 xmlns=\"urn:tests:types\"><id>c</id><value>b</value></list2>"
             "<leaflisttarget xmlns=\"urn:tests:types\">a</leaflisttarget>"
             "<leaflisttarget xmlns=\"urn:tests:types\">b</leaflisttarget>"
             "<a:inst xmlns:a=\"urn:tests:types\">/a:list2[a:id='a'][a:value='a']/a:id</a:inst>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     /* key-predicate */
     data = "/types:list2[id='a'][value='b']/id";
     assert_int_equal(LY_ENOTFOUND, lyd_value_validate(CONTEXT_GET, (const struct lyd_node_term *)tree->prev, data, strlen(data),
@@ -1057,7 +1051,7 @@ test_instanceid(void **state)
             "<inst xmlns=\"urn:tests:types\">/a:leaflisttarget[1]</inst>";
     err_msg[0] = "Invalid instance-identifier \"/a:leaflisttarget[1]\" value - semantic error.";
     err_path[0] = "/types:inst";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
     CONTEXT_DESTROY;
 }
@@ -1093,7 +1087,7 @@ test_leafref(void **state)
 
     /* valid data */
     data = "<leaflisttarget xmlns=\"urn:tests:types\">x</leaflisttarget><leaflisttarget xmlns=\"urn:tests:types\">y</leaflisttarget><lref xmlns=\"urn:tests:types\">y</lref>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->prev;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, 0x5, 1, "lref", 1, LYS_LEAF, 0, 0, NULL, 0);
     leaf = (struct lyd_node_term *)tree;
@@ -1103,7 +1097,7 @@ test_leafref(void **state)
     data = "<list xmlns=\"urn:tests:types\"><id>x</id><targets>a</targets><targets>b</targets></list>"
             "<list xmlns=\"urn:tests:types\"><id>y</id><targets>x</targets><targets>y</targets></list>"
             "<str-norestr xmlns=\"urn:tests:types\">y</str-norestr><lref2 xmlns=\"urn:tests:types\">y</lref2>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->prev;
     CHECK_LYSC_NODE(tree->schema, NULL, 0, 0x5, 1, "lref2", 1, LYS_LEAF, 0, 0, NULL, 0);
     leaf = (struct lyd_node_term *)tree;
@@ -1112,7 +1106,7 @@ test_leafref(void **state)
 
     data = "<str-norestr xmlns=\"urn:tests:types\">y</str-norestr>"
             "<c xmlns=\"urn:tests:leafrefs\"><l><id>x</id><value>x</value><lr1>y</lr1></l></c>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_LYSC_NODE(tree->schema, NULL, 0, 0x5, 1, "c", 0, LYS_CONTAINER, 0, 0, NULL, 0);
     leaf = (struct lyd_node_term *)(lyd_child(lyd_child(tree)->next)->prev);
     CHECK_LYSC_NODE(leaf->schema, NULL, 0, 0x5, 1, "lr1", 1, LYS_LEAF, 1, 0, NULL, 0);
@@ -1122,7 +1116,7 @@ test_leafref(void **state)
     data = "<str-norestr xmlns=\"urn:tests:types\">y</str-norestr>"
             "<c xmlns=\"urn:tests:leafrefs\"><l><id>y</id><value>y</value></l>"
             "<l><id>x</id><value>x</value><lr2>y</lr2></l></c>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_LYSC_NODE(tree->schema, NULL, 0, 0x5, 1, "c", 0, LYS_CONTAINER, 0, 0, NULL, 0);
     leaf = (struct lyd_node_term *)(lyd_child(lyd_child(tree)->prev)->prev);
     CHECK_LYSC_NODE(leaf->schema, NULL, 0, 0x5, 1, "lr2", 1, LYS_LEAF, 1, 0, NULL, 0);
@@ -1133,18 +1127,18 @@ test_leafref(void **state)
             "<list xmlns=\"urn:tests:types\"><id>y</id><targets>c</targets><targets>d</targets></list>"
             "<c xmlns=\"urn:tests:leafrefs\"><x><x>y</x></x>"
             "<l><id>x</id><value>x</value><lr3>c</lr3></l></c>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_LYSC_NODE(tree->schema, NULL, 0, 0x5, 1, "c", 0, LYS_CONTAINER, 0, 0, NULL, 0);
     leaf = (struct lyd_node_term *)(lyd_child(lyd_child(tree)->prev)->prev);
     CHECK_LYSC_NODE(leaf->schema, NULL, 0, 0x5, 1, "lr3", 0, LYS_LEAF, 1, 0, NULL, 0);
     CHECK_LYD_NODE_TERM(leaf, 0, 0, 0, 1, 1, STRING, "c");
     CHECK_FREE_LYD(tree);
 
-/// * invalid value */
+    /* invalid value */
     data = "<leaflisttarget xmlns=\"urn:tests:types\">x</leaflisttarget><lref xmlns=\"urn:tests:types\">y</lref>";
     err_msg[0] = "Invalid leafref value \"y\" - no target instance \"/leaflisttarget\" with the same value.";
     err_path[0] = "/types:lref";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<list xmlns=\"urn:tests:types\"><id>x</id><targets>a</targets><targets>b</targets></list>"
@@ -1152,7 +1146,7 @@ test_leafref(void **state)
             "<str-norestr xmlns=\"urn:tests:types\">y</str-norestr><lref2 xmlns=\"urn:tests:types\">b</lref2>";
     err_msg[0] = "Invalid leafref value \"b\" - no target instance \"../list[id = current()/../str-norestr]/targets\" with the same value.";
     err_path[0] = "/types:lref2";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<list xmlns=\"urn:tests:types\"><id>x</id><targets>a</targets><targets>b</targets></list>"
@@ -1160,20 +1154,20 @@ test_leafref(void **state)
             "<lref2 xmlns=\"urn:tests:types\">b</lref2>";
     err_msg[0] = "Invalid leafref value \"b\" - no target instance \"../list[id = current()/../str-norestr]/targets\" with the same value.";
     err_path[0] = "/types:lref2";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<str-norestr xmlns=\"urn:tests:types\">y</str-norestr><lref2 xmlns=\"urn:tests:types\">b</lref2>";
     err_msg[0] = "Invalid leafref value \"b\" - no target instance \"../list[id = current()/../str-norestr]/targets\" with the same value.";
     err_path[0] = "/types:lref2";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<str-norestr xmlns=\"urn:tests:types\">y</str-norestr>"
             "<c xmlns=\"urn:tests:leafrefs\"><l><id>x</id><value>x</value><lr1>a</lr1></l></c>";
     err_msg[0] = "Invalid leafref value \"a\" - no target instance \"../../../t:str-norestr\" with the same value.";
     err_path[0] = "/leafrefs:c/l[id='x'][value='x']/lr1";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<str-norestr xmlns=\"urn:tests:types\">z</str-norestr>"
@@ -1182,7 +1176,7 @@ test_leafref(void **state)
     err_msg[0] = "Invalid leafref value \"z\" - no target instance \"../../l[id=current()/../../../t:str-norestr]"
             "[value=current()/../../../t:str-norestr]/value\" with the same value.";
     err_path[0] = "/leafrefs:c/l[id='x'][value='x']/lr2";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     CONTEXT_DESTROY;
@@ -1217,7 +1211,7 @@ test_union(void **state)
 
     /* valid data */
     data = "<int8 xmlns=\"urn:tests:types\">12</int8><un1 xmlns=\"urn:tests:types\">12</un1>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->next->next;
     TEST_PATTERN_1(tree, "un1", 0, UNION, "12", INT8, "12", 12);
     leaf = (struct lyd_node_term *)tree;
@@ -1226,7 +1220,7 @@ test_union(void **state)
     CHECK_FREE_LYD(tree);
 
     data = "<int8 xmlns=\"urn:tests:types\">12</int8><un1 xmlns=\"urn:tests:types\">2</un1>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->next->next;
     TEST_PATTERN_1(tree, "un1", 0, UNION, "2", STRING, "2");
     leaf = (struct lyd_node_term *)tree;
@@ -1235,7 +1229,7 @@ test_union(void **state)
     CHECK_FREE_LYD(tree);
 
     data = "<un1 xmlns=\"urn:tests:types\" xmlns:x=\"urn:tests:defs\">x:fast-ethernet</un1>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "un1", 0, UNION, "defs:fast-ethernet", IDENT, "defs:fast-ethernet", "fast-ethernet");
     leaf = (struct lyd_node_term *)tree;
@@ -1245,7 +1239,7 @@ test_union(void **state)
     CHECK_FREE_LYD(tree);
 
     data = "<un1 xmlns=\"urn:tests:types\" xmlns:d=\"urn:tests:defs\">d:superfast-ethernet</un1>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->next;
     TEST_PATTERN_1(tree, "un1", 0, UNION, "d:superfast-ethernet", STRING, "d:superfast-ethernet");
     leaf = (struct lyd_node_term *)tree;
@@ -1254,7 +1248,7 @@ test_union(void **state)
 
     data = "<leaflisttarget xmlns=\"urn:tests:types\">x</leaflisttarget><leaflisttarget xmlns=\"urn:tests:types\">y</leaflisttarget>"
             "<un1 xmlns=\"urn:tests:types\" xmlns:a=\"urn:tests:types\">/a:leaflisttarget[.='y']</un1>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->prev;
     const enum ly_path_pred_type result_1[] = {LY_PATH_PREDTYPE_LEAFLIST};
 
@@ -1266,7 +1260,7 @@ test_union(void **state)
 
     data = "<leaflisttarget xmlns=\"urn:tests:types\">x</leaflisttarget><leaflisttarget xmlns=\"urn:tests:types\">y</leaflisttarget>"
             "<un1 xmlns=\"urn:tests:types\" xmlns:a=\"urn:tests:types\">/a:leaflisttarget[3]</un1>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     tree = tree->prev;
     TEST_PATTERN_1(tree, "un1", 0, UNION, "/a:leaflisttarget[3]", STRING, "/a:leaflisttarget[3]");
     leaf = (struct lyd_node_term *)tree;

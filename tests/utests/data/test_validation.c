@@ -399,13 +399,6 @@ const char *feats[] = {"feat1", NULL};
                     ly_in_free(in, 0);\
                 }\
 
-
-#define LYD_TREE_CREATE(INPUT, MODEL) \
-                CHECK_PARSE_LYD_PARAM(INPUT, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, MODEL)
-
-#define LYD_TREE_CHECK_CHAR(IN_MODEL, TEXT) \
-                CHECK_LYD_STRING_PARAM(IN_MODEL, TEXT, LYD_XML, LYD_PRINT_WITHSIBLINGS)
-
 static void
 test_when(void **state)
 {
@@ -421,11 +414,11 @@ test_when(void **state)
     data = "<c xmlns=\"urn:tests:a\">hey</c>";
     err_msg[0] = "When condition \"/cont/b = 'val_b'\" not satisfied.";
     err_path[0] = "/a:c";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<cont xmlns=\"urn:tests:a\"><b>val_b</b></cont><c xmlns=\"urn:tests:a\">hey</c>";
-    LYD_TREE_CREATE(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     flag = 0x5;
     CHECK_LYSC_NODE(tree->next->schema, NULL, 0, flag, 1, "c", 0, LYS_LEAF, 0, 0, NULL, 1);
     assert_int_equal(LYD_WHEN_TRUE, tree->next->flags);
@@ -433,7 +426,7 @@ test_when(void **state)
 
     data = "<cont xmlns=\"urn:tests:a\"><a>val</a><b>val_b</b></cont><c xmlns=\"urn:tests:a\">val_c</c>";
 
-    LYD_TREE_CREATE(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_LYSC_NODE(lyd_child(tree)->schema, NULL, 0, flag, 1, "a", 1, LYS_LEAF, 1, 0, NULL, 1);
     assert_int_equal(LYD_WHEN_TRUE, lyd_child(tree)->flags);
     CHECK_LYSC_NODE(tree->next->schema, NULL, 0, flag, 1, "c", 0, LYS_LEAF, 0, 0, NULL, 1);
@@ -458,23 +451,23 @@ test_mandatory(void **state)
     data = "<d xmlns=\"urn:tests:b\"/>";
     err_msg[0] = "Mandatory node \"choic\" instance does not exist.";
     err_path[0] = "/b:choic";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<l xmlns=\"urn:tests:b\">string</l><d xmlns=\"urn:tests:b\"/>";
     err_msg[0] = "Mandatory node \"c\" instance does not exist.";
     err_path[0] = "/b:c";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<a xmlns=\"urn:tests:b\">string</a>";
     err_msg[0] = "Mandatory node \"c\" instance does not exist.";
     err_path[0] = "/b:c";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<a xmlns=\"urn:tests:b\">string</a><c xmlns=\"urn:tests:b\">string2</c>";
-    LYD_TREE_CREATE(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     lyd_free_siblings(tree);
 
     CONTEXT_DESTROY;
@@ -495,7 +488,7 @@ test_minmax(void **state)
     data = "<d xmlns=\"urn:tests:c\"/>";
     err_msg[0] = "Too few \"l\" instances.";
     err_path[0] = "/c:choic/b/l";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data =
@@ -503,14 +496,14 @@ test_minmax(void **state)
             "<l xmlns=\"urn:tests:c\">val2</l>";
     err_msg[0] = "Too few \"l\" instances.";
     err_path[0] = "/c:choic/b/l";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data =
             "<l xmlns=\"urn:tests:c\">val1</l>"
             "<l xmlns=\"urn:tests:c\">val2</l>"
             "<l xmlns=\"urn:tests:c\">val3</l>";
-    LYD_TREE_CREATE(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_FREE_LYD(tree);
 
     data =
@@ -524,7 +517,7 @@ test_minmax(void **state)
             "<lt xmlns=\"urn:tests:c\"><k>val5</k></lt>";
     err_msg[0] = "Too many \"lt\" instances.";
     err_path[0] = "/c:lt";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     CONTEXT_DESTROY;
@@ -550,7 +543,7 @@ test_unique(void **state)
             "<lt xmlns=\"urn:tests:d\">\n"
             "    <k>val2</k>\n"
             "</lt>";
-    LYD_TREE_CREATE(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_FREE_LYD(tree);
 
     data =
@@ -562,7 +555,7 @@ test_unique(void **state)
             "    <k>val2</k>\n"
             "    <l1>not-same</l1>\n"
             "</lt>";
-    LYD_TREE_CREATE(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_FREE_LYD(tree);
 
     data =
@@ -576,7 +569,7 @@ test_unique(void **state)
             "</lt>";
     err_msg[0] = "Unique data leaf(s) \"l1\" not satisfied in \"/d:lt[k='val1']\" and \"/d:lt[k='val2']\".";
     err_path[0] = "/d:lt[k='val2']";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     /* now try with more instances */
@@ -613,7 +606,7 @@ test_unique(void **state)
             "    <k>val8</k>\n"
             "    <l1>8</l1>\n"
             "</lt>";
-    LYD_TREE_CREATE(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_FREE_LYD(tree);
 
     data =
@@ -646,7 +639,7 @@ test_unique(void **state)
             "<lt xmlns=\"urn:tests:d\">\n"
             "    <k>val8</k>\n"
             "</lt>";
-    LYD_TREE_CREATE(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_FREE_LYD(tree);
 
     data =
@@ -681,7 +674,7 @@ test_unique(void **state)
             "</lt>";
     err_msg[0] = "Unique data leaf(s) \"l1\" not satisfied in \"/d:lt[k='val7']\" and \"/d:lt[k='val2']\".";
     err_path[0] = "/d:lt[k='val2']";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     CONTEXT_DESTROY;
@@ -756,7 +749,7 @@ test_unique_nested(void **state)
             "        <l3>3</l3>\n"
             "    </lt3>\n"
             "</lt2>";
-    LYD_TREE_CREATE(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_FREE_LYD(tree);
 
     data =
@@ -820,7 +813,7 @@ test_unique_nested(void **state)
             " \"/d:lt2[k='val2']/lt3[kk='val3']\" and"
             " \"/d:lt2[k='val2']/lt3[kk='val1']\".";
     err_path[0] = "/d:lt2[k='val2']/lt3[kk='val1']";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data =
@@ -861,7 +854,7 @@ test_unique_nested(void **state)
             "</lt2>";
     err_msg[0] = "Unique data leaf(s) \"cont/l2 l4\" not satisfied in \"/d:lt2[k='val4']\" and \"/d:lt2[k='val2']\".";
     err_path[0] = "/d:lt2[k='val2']";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data =
@@ -910,7 +903,7 @@ test_unique_nested(void **state)
             "</lt2>";
     err_msg[0] = "Unique data leaf(s) \"l5 l6\" not satisfied in \"/d:lt2[k='val5']\" and \"/d:lt2[k='val3']\".";
     err_path[0] = "/d:lt2[k='val3']";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     CONTEXT_DESTROY;
@@ -931,59 +924,59 @@ test_dup(void **state)
     data = "<d xmlns=\"urn:tests:e\">25</d><d xmlns=\"urn:tests:e\">50</d>";
     err_msg[0] = "Duplicate instance of \"d\".";
     err_path[0] = "/e:d";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<lt xmlns=\"urn:tests:e\"><k>A</k></lt><lt xmlns=\"urn:tests:e\"><k>B</k></lt><lt xmlns=\"urn:tests:e\"><k>A</k></lt>";
     err_msg[0] = "Duplicate instance of \"lt\".";
     err_path[0] = "/e:lt[k='A']";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<ll xmlns=\"urn:tests:e\">A</ll><ll xmlns=\"urn:tests:e\">B</ll><ll xmlns=\"urn:tests:e\">B</ll>";
     err_msg[0] = "Duplicate instance of \"ll\".";
     err_path[0] = "/e:ll[.='B']";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<cont xmlns=\"urn:tests:e\"></cont><cont xmlns=\"urn:tests:e\"/>";
     err_msg[0] = "Duplicate instance of \"cont\".";
     err_path[0] = "/e:cont";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     /* same tests again but using hashes */
     data = "<cont xmlns=\"urn:tests:e\"><d>25</d><d>50</d><ll>1</ll><ll>2</ll><ll>3</ll><ll>4</ll></cont>";
     err_msg[0] = "Duplicate instance of \"d\".";
     err_path[0] = "/e:cont/d";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<cont xmlns=\"urn:tests:e\"><ll>1</ll><ll>2</ll><ll>3</ll><ll>4</ll>"
             "<lt><k>a</k></lt><lt><k>b</k></lt><lt><k>c</k></lt><lt><k>d</k></lt><lt><k>c</k></lt></cont>";
     err_msg[0] = "Duplicate instance of \"lt\".";
     err_path[0] = "/e:cont/lt[k='c']";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<cont xmlns=\"urn:tests:e\"><ll>1</ll><ll>2</ll><ll>3</ll><ll>4</ll>"
             "<ll>a</ll><ll>b</ll><ll>c</ll><ll>d</ll><ll>d</ll></cont>";
     err_msg[0] = "Duplicate instance of \"ll\".";
     err_path[0] = "/e:cont/ll[.='d']";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     /* cases */
     data = "<l xmlns=\"urn:tests:e\">a</l><l xmlns=\"urn:tests:e\">b</l><l xmlns=\"urn:tests:e\">c</l><l xmlns=\"urn:tests:e\">b</l>";
     err_msg[0] = "Duplicate instance of \"l\".";
     err_path[0] = "/e:l[.='b']";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<l xmlns=\"urn:tests:e\">a</l><l xmlns=\"urn:tests:e\">b</l><l xmlns=\"urn:tests:e\">c</l><a xmlns=\"urn:tests:e\">aa</a>";
     err_msg[0] = "Data for both cases \"a\" and \"b\" exist.";
     err_path[0] = "/e:choic";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     CONTEXT_DESTROY;
@@ -1022,7 +1015,7 @@ test_defaults(void **state)
             "  <ll2 xmlns:ncwd=\"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults\" ncwd:default=\"true\">dflt1</ll2>\n"
             "  <ll2 xmlns:ncwd=\"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults\" ncwd:default=\"true\">dflt2</ll2>\n"
             "</cont>\n";
-    CHECK_LYD_STRING_PARAM(tree, str, LYD_XML, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(tree, str, LYD_XML, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_WITHSIBLINGS);
 
     /* check diff */
     str = "<ll1 xmlns=\"urn:tests:f\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"create\">def1</ll1>\n"
@@ -1039,7 +1032,7 @@ test_defaults(void **state)
             "  <ll2 yang:operation=\"create\">dflt1</ll2>\n"
             "  <ll2 yang:operation=\"create\">dflt2</ll2>\n"
             "</cont>\n";
-    CHECK_LYD_STRING_PARAM(diff, str, LYD_XML, LYD_PRINT_WD_ALL | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(diff, str, LYD_XML, LYD_PRINT_WD_ALL | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(diff);
 
     /* create another explicit case and validate */
@@ -1060,13 +1053,13 @@ test_defaults(void **state)
             "  <ll2 xmlns:ncwd=\"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults\" ncwd:default=\"true\">dflt1</ll2>\n"
             "  <ll2 xmlns:ncwd=\"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults\" ncwd:default=\"true\">dflt2</ll2>\n"
             "</cont>\n";
-    CHECK_LYD_STRING_PARAM(tree, str, LYD_XML, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(tree, str, LYD_XML, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_WITHSIBLINGS);
 
     /* check diff */
     str = "<ll1 xmlns=\"urn:tests:f\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"delete\">def1</ll1>\n"
             "<ll1 xmlns=\"urn:tests:f\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"delete\">def2</ll1>\n"
             "<ll1 xmlns=\"urn:tests:f\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"delete\">def3</ll1>\n";
-    CHECK_LYD_STRING_PARAM(diff, str, LYD_XML, LYD_PRINT_WD_ALL | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(diff, str, LYD_XML, LYD_PRINT_WD_ALL | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(diff);
 
     /* create explicit leaf-list and leaf and validate */
@@ -1088,13 +1081,13 @@ test_defaults(void **state)
             "  <ll2 xmlns:ncwd=\"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults\" ncwd:default=\"true\">dflt1</ll2>\n"
             "  <ll2 xmlns:ncwd=\"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults\" ncwd:default=\"true\">dflt2</ll2>\n"
             "</cont>\n";
-    CHECK_LYD_STRING_PARAM(tree, str, LYD_XML, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(tree, str, LYD_XML, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_WITHSIBLINGS);
 
     /* check diff */
     str = "<d xmlns=\"urn:tests:f\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"delete\">15</d>\n"
             "<ll2 xmlns=\"urn:tests:f\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"delete\">dflt1</ll2>\n"
             "<ll2 xmlns=\"urn:tests:f\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"delete\">dflt2</ll2>\n";
-    CHECK_LYD_STRING_PARAM(diff, str, LYD_XML, LYD_PRINT_WD_ALL | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(diff, str, LYD_XML, LYD_PRINT_WD_ALL | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(diff);
 
     /* create first explicit container, which should become implicit */
@@ -1114,7 +1107,7 @@ test_defaults(void **state)
             "  <ll2 xmlns:ncwd=\"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults\" ncwd:default=\"true\">dflt1</ll2>\n"
             "  <ll2 xmlns:ncwd=\"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults\" ncwd:default=\"true\">dflt2</ll2>\n"
             "</cont>\n";
-    CHECK_LYD_STRING_PARAM(tree, str, LYD_XML, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(tree, str, LYD_XML, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_WITHSIBLINGS);
     /* check diff */
     assert_null(diff);
 
@@ -1135,7 +1128,7 @@ test_defaults(void **state)
             "  <ll2 xmlns:ncwd=\"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults\" ncwd:default=\"true\">dflt1</ll2>\n"
             "  <ll2 xmlns:ncwd=\"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults\" ncwd:default=\"true\">dflt2</ll2>\n"
             "</cont>\n";
-    CHECK_LYD_STRING_PARAM(tree, str, LYD_XML, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(tree, str, LYD_XML, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_WITHSIBLINGS);
     /* check diff */
     assert_null(diff);
 
@@ -1154,7 +1147,7 @@ test_defaults(void **state)
             "  <d>5</d>\n"
             "  <ll2>non-dflt</ll2>\n"
             "</cont>\n";
-    LYD_TREE_CHECK_CHAR(tree, str);
+    CHECK_LYD_STRING(tree, str, LYD_XML, LYD_PRINT_WITHSIBLINGS);
 
     /* check diff */
     str = "<cont xmlns=\"urn:tests:f\" xmlns:yang=\"urn:ietf:params:xml:ns:yang:1\" yang:operation=\"none\">\n"
@@ -1165,7 +1158,7 @@ test_defaults(void **state)
             "  <ll2 yang:operation=\"delete\">dflt1</ll2>\n"
             "  <ll2 yang:operation=\"delete\">dflt2</ll2>\n"
             "</cont>\n";
-    CHECK_LYD_STRING_PARAM(diff, str, LYD_XML, LYD_PRINT_WD_ALL | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(diff, str, LYD_XML, LYD_PRINT_WD_ALL | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(diff);
     CHECK_FREE_LYD(tree);
 
@@ -1192,10 +1185,10 @@ test_state(void **state)
             "</cont>\n";
     err_msg[0] = "Invalid state data node \"cont2\" found.";
     err_path[0] = "/h:cont/cont2";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, LYD_PARSE_ONLY | LYD_PARSE_NO_STATE, 0, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, LYD_PARSE_ONLY | LYD_PARSE_NO_STATE, 0, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, tree);
     assert_int_equal(LY_EVALID, lyd_validate_all(&tree, NULL, LYD_VALIDATE_PRESENT | LYD_VALIDATE_NO_STATE, NULL));
     err_msg[0] = "Invalid state data node \"cont2\" found.";
     err_path[0] = "/h:cont/cont2";
@@ -1223,14 +1216,14 @@ test_must(void **state)
             "</cont>\n";
     err_msg[0] = "Must condition \"../l = 'right'\" not satisfied.";
     err_path[0] = "/i:cont/l2";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_EVALID, tree);
     CHECK_CTX_ERROR(CONTEXT_GET, err_msg, err_path);
 
     data = "<cont xmlns=\"urn:tests:i\">\n"
             "  <l>right</l>\n"
             "  <l2>val</l2>\n"
             "</cont>\n";
-    LYD_TREE_CREATE(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     CHECK_FREE_LYD(tree);
 
     CONTEXT_DESTROY;
@@ -1273,7 +1266,7 @@ test_action(void **state)
             "  <lf1>not true</lf1>\n"
             "</cont>\n"
             "<lf3 xmlns=\"urn:tests:j\">target</lf3>\n";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, tree);
 
     /* input must false */
     assert_int_equal(LY_EVALID, lyd_validate_op(op_tree, tree, LYD_VALIDATE_OP_RPC, NULL));
@@ -1286,7 +1279,7 @@ test_action(void **state)
             "  <lf1>true</lf1>\n"
             "</cont>\n"
             "<lf3 xmlns=\"urn:tests:j\">target</lf3>\n";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, tree);
 
     /* success */
     assert_int_equal(LY_SUCCESS, lyd_validate_op(op_tree, tree, LYD_VALIDATE_OP_RPC, NULL));
@@ -1340,7 +1333,7 @@ test_reply(void **state)
             "  <lf1>not true</lf1>\n"
             "</cont>\n"
             "<lf4 xmlns=\"urn:tests:j\">target</lf4>\n";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, tree);
 
     /* input must false */
     assert_int_equal(LY_EVALID, lyd_validate_op(op_tree, tree, LYD_VALIDATE_OP_REPLY, NULL));
@@ -1353,7 +1346,7 @@ test_reply(void **state)
             "  <lf1>true2</lf1>\n"
             "</cont>\n"
             "<lf4 xmlns=\"urn:tests:j\">target</lf4>\n";
-    CHECK_PARSE_LYD_PARAM(data, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, tree);
 
     /* success */
     assert_int_equal(LY_SUCCESS, lyd_validate_op(op_tree, tree, LYD_VALIDATE_OP_REPLY, NULL));

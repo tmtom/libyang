@@ -15,15 +15,6 @@
 #include "libyang.h"
 #include "utests.h"
 
-#define LYD_TREE_CREATE(INPUT, MODEL) \
-                CHECK_PARSE_LYD_PARAM(INPUT, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, MODEL)
-
-#define CONTEXT_CREATE \
-                CONTEXT_CREATE_PATH(NULL)
-
-#define LYD_TREE_CHECK_CHAR(MODEL, TEXT, PARAMS) \
-                CHECK_LYD_STRING_PARAM(MODEL, TEXT, LYD_XML, LYD_PRINT_WITHSIBLINGS | PARAMS)
-
 static void
 test_batch(void **state)
 {
@@ -174,18 +165,18 @@ test_batch(void **state)
             "  </module>\n"
             "</modules-state>\n";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(NULL);
     struct lyd_node *target;
 
-    CHECK_PARSE_LYD_PARAM(start, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, target);
+    CHECK_PARSE_LYD(start, LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, target);
 
     for (int32_t i = 0; i < 11; ++i) {
         struct lyd_node *source;
-        CHECK_PARSE_LYD_PARAM(data[i], LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, source);
+        CHECK_PARSE_LYD(data[i], LYD_XML, LYD_PARSE_ONLY, 0, LY_SUCCESS, source);
         assert_int_equal(LY_SUCCESS, lyd_merge_siblings(&target, source, LYD_MERGE_DESTRUCT));
     }
 
-    LYD_TREE_CHECK_CHAR(target, output_template, 0);
+    CHECK_LYD_STRING(target, output_template, LYD_XML, LYD_PRINT_WITHSIBLINGS | 0);
 
     CHECK_FREE_LYD(target);
     CONTEXT_DESTROY;
@@ -209,20 +200,20 @@ test_leaf(void **state)
     const char *src = "<A xmlns=\"urn:x\"> <f1>aa</f1> <B> <f2>bb</f2> </B> </A>";
     const char *result = "<A xmlns=\"urn:x\"><f1>aa</f1><B><f2>bb</f2></B></A>";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(NULL);
     assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, sch, LYS_IN_YANG, NULL));
 
     struct lyd_node *source, *target;
 
-    LYD_TREE_CREATE(src, source);
-    LYD_TREE_CREATE(trg, target);
+    CHECK_PARSE_LYD(src, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, source);
+    CHECK_PARSE_LYD(trg, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, target);
 
     /* merge them */
     assert_int_equal(lyd_merge_siblings(&target, source, 0), LY_SUCCESS);
     assert_int_equal(lyd_validate_all(&target, NULL, LYD_VALIDATE_PRESENT, NULL), LY_SUCCESS);
 
     /* check the result */
-    LYD_TREE_CHECK_CHAR(target, result, LYD_PRINT_SHRINK);
+    CHECK_LYD_STRING(target, result, LYD_XML, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
 
     CHECK_FREE_LYD(target);
     CHECK_FREE_LYD(source);
@@ -252,20 +243,20 @@ test_container(void **state)
     const char *src = "<A xmlns=\"aa:A\"> <C> <f3>bbb</f3> </C> </A>";
     const char *result = "<A xmlns=\"aa:A\"><B><f2>aaa</f2></B><C><f3>bbb</f3></C></A>";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(NULL);
     assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, sch, LYS_IN_YANG, NULL));
 
     struct lyd_node *source, *target;
 
-    LYD_TREE_CREATE(src, source);
-    LYD_TREE_CREATE(trg, target);
+    CHECK_PARSE_LYD(src, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, source);
+    CHECK_PARSE_LYD(trg, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, target);
 
     /* merge them */
     assert_int_equal(lyd_merge_siblings(&target, source, 0), LY_SUCCESS);
     assert_int_equal(lyd_validate_all(&target, NULL, LYD_VALIDATE_PRESENT, NULL), LY_SUCCESS);
 
     /* check the result */
-    LYD_TREE_CHECK_CHAR(target, result, LYD_PRINT_SHRINK);
+    CHECK_LYD_STRING(target, result, LYD_XML, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
 
     /* destroy */
     CHECK_FREE_LYD(source);
@@ -323,20 +314,20 @@ test_list(void **state)
             "  </b-list1>\n"
             "</inner1>\n";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(NULL);
     assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, sch, LYS_IN_YANG, NULL));
 
     struct lyd_node *source, *target;
 
-    LYD_TREE_CREATE(src, source);
-    LYD_TREE_CREATE(trg, target);
+    CHECK_PARSE_LYD(src, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, source);
+    CHECK_PARSE_LYD(trg, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, target);
 
     /* merge them */
     assert_int_equal(lyd_merge_siblings(&target, source, 0), LY_SUCCESS);
     assert_int_equal(lyd_validate_all(&target, NULL, LYD_VALIDATE_PRESENT, NULL), LY_SUCCESS);
 
     /* check the result */
-    LYD_TREE_CHECK_CHAR(target, result, 0);
+    CHECK_LYD_STRING(target, result, LYD_XML, LYD_PRINT_WITHSIBLINGS | 0);
 
     CHECK_FREE_LYD(target);
     CHECK_FREE_LYD(source);
@@ -402,20 +393,20 @@ test_list2(void **state)
             "  </b-list1>\n"
             "</inner1>\n";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(NULL);
     assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, sch, LYS_IN_YANG, NULL));
 
     struct lyd_node *source, *target;
 
-    LYD_TREE_CREATE(src, source);
-    LYD_TREE_CREATE(trg, target);
+    CHECK_PARSE_LYD(src, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, source);
+    CHECK_PARSE_LYD(trg, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, target);
 
     /* merge them */
     assert_int_equal(lyd_merge_siblings(&target, source, 0), LY_SUCCESS);
     assert_int_equal(lyd_validate_all(&target, NULL, LYD_VALIDATE_PRESENT, NULL), LY_SUCCESS);
 
     /* check the result */
-    LYD_TREE_CHECK_CHAR(target, result, 0);
+    CHECK_LYD_STRING(target, result, LYD_XML, LYD_PRINT_WITHSIBLINGS | 0);
 
     CHECK_FREE_LYD(source);
     CHECK_FREE_LYD(target);
@@ -461,20 +452,20 @@ test_case(void **state)
             "  <p1>1</p1>\n"
             "</cont>\n";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(NULL);
     assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, sch, LYS_IN_YANG, NULL));
 
     struct lyd_node *source, *target;
 
-    LYD_TREE_CREATE(src, source);
-    LYD_TREE_CREATE(trg, target);
+    CHECK_PARSE_LYD(src, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, source);
+    CHECK_PARSE_LYD(trg, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, target);
 
     /* merge them */
     assert_int_equal(lyd_merge_siblings(&target, source, 0), LY_SUCCESS);
     assert_int_equal(lyd_validate_all(&target, NULL, LYD_VALIDATE_PRESENT, NULL), LY_SUCCESS);
 
     /* check the result */
-    LYD_TREE_CHECK_CHAR(target, result, 0);
+    CHECK_LYD_STRING(target, result, LYD_XML, LYD_PRINT_WITHSIBLINGS | 0);
 
     CHECK_FREE_LYD(source);
     CHECK_FREE_LYD(target);
@@ -503,7 +494,7 @@ test_dflt(void **state)
             "    }\n"
             "}\n";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(NULL);
     assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, sch, LYS_IN_YANG, NULL));
 
     struct lyd_node *target = NULL;
@@ -550,7 +541,7 @@ test_dflt2(void **state)
             "    }\n"
             "}\n";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(NULL);
     assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, sch, LYS_IN_YANG, NULL));
 
     struct lyd_node *target;
@@ -593,18 +584,18 @@ test_leafrefs(void **state)
             "<l xmlns=\"urn:x\"><n>b</n><r>a</r></l>"
             "<l xmlns=\"urn:x\"><n>c</n><r>a</r></l>";
 
-    CONTEXT_CREATE;
+    CONTEXT_CREATE_PATH(NULL);
 
     assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, sch, LYS_IN_YANG, NULL));
 
     struct lyd_node *source, *target;
 
-    LYD_TREE_CREATE(src, source);
-    LYD_TREE_CREATE(trg, target);
+    CHECK_PARSE_LYD(src, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, source);
+    CHECK_PARSE_LYD(trg, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, target);
 
     assert_int_equal(lyd_merge_siblings(&target, source, 0), LY_SUCCESS);
 
-    LYD_TREE_CHECK_CHAR(target, res, LYD_PRINT_SHRINK);
+    CHECK_LYD_STRING(target, res, LYD_XML, LYD_PRINT_WITHSIBLINGS | LYD_PRINT_SHRINK);
 
     CHECK_FREE_LYD(source);
     CHECK_FREE_LYD(target);

@@ -96,17 +96,10 @@ const char *schema_c =
                 assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema_b, LYS_IN_YANG, NULL));\
                 assert_int_equal(LY_SUCCESS, lys_parse_mem(CONTEXT_GET, schema_c, LYS_IN_YANG, NULL))\
 
-
-#define CHECK_PARSE_LYD(INPUT, MODEL) \
-                CHECK_PARSE_LYD_PARAM(INPUT, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, MODEL)
-
 #define PARSER_CHECK_ERROR(INPUT, PARSE_OPTION, MODEL, RET_VAL, ERR_MESSAGE) \
                 assert_int_equal(RET_VAL, lyd_parse_data_mem(CONTEXT_GET, data, LYD_XML, PARSE_OPTION, LYD_VALIDATE_PRESENT, &MODEL));\
                 logbuf_assert(ERR_MESSAGE);\
                 assert_null(MODEL)
-
-#define CHECK_LYD_STRING(IN_MODEL, TEXT, PARAM) \
-                CHECK_LYD_STRING_PARAM(IN_MODEL, TEXT, LYD_XML, PARAM | LYD_PRINT_WITHSIBLINGS)
 
 #define logbuf_assert(str)\
     {\
@@ -127,8 +120,8 @@ test_leaf(void **state)
 
     data = "<int8 xmlns=\"urn:tests:types\">\n 15 \t\n  </int8>";
     result = "<int8 xmlns=\"urn:tests:types\">15</int8>";
-    CHECK_PARSE_LYD(data, tree);
-    CHECK_LYD_STRING(tree, result, LYD_PRINT_SHRINK);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
+    CHECK_LYD_STRING(tree, result, LYD_XML, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     CONTEXT_DESTROY;
@@ -145,15 +138,15 @@ test_anydata(void **state)
     CONTEXT_CREATE;
 
     data = "<any xmlns=\"urn:tests:types\"><somexml xmlns:x=\"url:x\" xmlns=\"example.com\"><x:x/></somexml></any>";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     /* canonized */
     data = "<any xmlns=\"urn:tests:types\"><somexml xmlns=\"example.com\"><x xmlns=\"url:x\"/></somexml></any>";
-    CHECK_LYD_STRING(tree, data, LYD_PRINT_SHRINK);
+    CHECK_LYD_STRING(tree, data, LYD_XML, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     data = "<any xmlns=\"urn:tests:types\"/>";
-    CHECK_PARSE_LYD(data, tree);
-    CHECK_LYD_STRING(tree, data, LYD_PRINT_SHRINK);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
+    CHECK_LYD_STRING(tree, data, LYD_XML, LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     data =
@@ -165,7 +158,7 @@ test_anydata(void **state)
             "    </defs:elem1>\n"
             "  </cont>\n"
             "</any>\n";
-    CHECK_PARSE_LYD(data, tree);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
     assert_non_null(tree);
     tree = tree->next;
     /* cont should be normally parsed */
@@ -187,7 +180,7 @@ test_anydata(void **state)
             "    </elem1>\n"
             "  </cont>\n"
             "</any>\n";
-    CHECK_LYD_STRING(tree, data, 0);
+    CHECK_LYD_STRING(tree, data, LYD_XML, 0 | LYD_PRINT_WITHSIBLINGS);
 
     CHECK_FREE_LYD(tree);
     CONTEXT_DESTROY;
@@ -208,30 +201,30 @@ test_defaults(void **state)
 
     /* standard default value */
     data = "<c xmlns=\"urn:defaults\">aa</c>";
-    CHECK_PARSE_LYD(data, tree);
-    CHECK_LYD_STRING(tree, data, LYD_PRINT_WD_TRIM | LYD_PRINT_SHRINK);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
+    CHECK_LYD_STRING(tree, data, LYD_XML, LYD_PRINT_WD_TRIM | LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
 
     data = "<a xmlns=\"urn:defaults\" xmlns:d=\"urn:defaults\">/d:b</a><c xmlns=\"urn:defaults\">aa</c>";
-    CHECK_LYD_STRING(tree, data, LYD_PRINT_WD_ALL | LYD_PRINT_SHRINK);
+    CHECK_LYD_STRING(tree, data, LYD_XML, LYD_PRINT_WD_ALL | LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
 
     data = "<a xmlns=\"urn:defaults\" xmlns:ncwd=\"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults\""
             " ncwd:default=\"true\" xmlns:d=\"urn:defaults\">/d:b</a>"
             "<c xmlns=\"urn:defaults\">aa</c>";
-    CHECK_LYD_STRING(tree, data, LYD_PRINT_WD_ALL_TAG | LYD_PRINT_SHRINK);
+    CHECK_LYD_STRING(tree, data, LYD_XML, LYD_PRINT_WD_ALL_TAG | LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
 
     data = "<a xmlns=\"urn:defaults\" xmlns:ncwd=\"urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults\""
             " ncwd:default=\"true\" xmlns:d=\"urn:defaults\">/d:b</a>"
             "<c xmlns=\"urn:defaults\">aa</c>";
-    CHECK_LYD_STRING(tree, data, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_SHRINK);
+    CHECK_LYD_STRING(tree, data, LYD_XML, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     /* string value equal to the default but default is an unresolved instance-identifier, so they are not considered equal */
     data = "<a xmlns=\"urn:defaults\">/d:b</a><c xmlns=\"urn:defaults\">aa</c>";
-    CHECK_PARSE_LYD(data, tree);
-    CHECK_LYD_STRING(tree, data, LYD_PRINT_WD_TRIM | LYD_PRINT_SHRINK);
-    CHECK_LYD_STRING(tree, data, LYD_PRINT_WD_ALL | LYD_PRINT_SHRINK);
-    CHECK_LYD_STRING(tree, data, LYD_PRINT_WD_ALL_TAG | LYD_PRINT_SHRINK);
-    CHECK_LYD_STRING(tree, data, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_SHRINK);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
+    CHECK_LYD_STRING(tree, data, LYD_XML, LYD_PRINT_WD_TRIM | LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(tree, data, LYD_XML, LYD_PRINT_WD_ALL | LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(tree, data, LYD_XML, LYD_PRINT_WD_ALL_TAG | LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(tree, data, LYD_XML, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     /* instance-identifier value equal to the default, should be considered equal */
@@ -244,11 +237,11 @@ test_defaults(void **state)
             "<c xmlns=\"urn:defaults\">aa</c>";
     data_impl_tag = "<a xmlns=\"urn:defaults\" xmlns:d=\"urn:defaults\">/d:b</a><b xmlns=\"urn:defaults\">val</b><c xmlns=\"urn:defaults\">aa</c>";
 
-    CHECK_PARSE_LYD(data, tree);
-    CHECK_LYD_STRING(tree, data_trim, LYD_PRINT_WD_TRIM | LYD_PRINT_SHRINK);
-    CHECK_LYD_STRING(tree, data_all, LYD_PRINT_WD_ALL | LYD_PRINT_SHRINK);
-    CHECK_LYD_STRING(tree, data_all_tag, LYD_PRINT_WD_ALL_TAG | LYD_PRINT_SHRINK);
-    CHECK_LYD_STRING(tree, data_impl_tag, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_SHRINK);
+    CHECK_PARSE_LYD(data, LYD_XML, 0, LYD_VALIDATE_PRESENT, LY_SUCCESS, tree);
+    CHECK_LYD_STRING(tree, data_trim, LYD_XML, LYD_PRINT_WD_TRIM | LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(tree, data_all, LYD_XML, LYD_PRINT_WD_ALL | LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(tree, data_all_tag, LYD_XML, LYD_PRINT_WD_ALL_TAG | LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
+    CHECK_LYD_STRING(tree, data_impl_tag, LYD_XML, LYD_PRINT_WD_IMPL_TAG | LYD_PRINT_SHRINK | LYD_PRINT_WITHSIBLINGS);
     CHECK_FREE_LYD(tree);
 
     CONTEXT_DESTROY;

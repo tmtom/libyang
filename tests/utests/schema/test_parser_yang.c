@@ -204,7 +204,6 @@ test_comments(void **state)
 
     PARSER_CREATE(ctx);
 
-    // in.current = " // this is a text of / one * line */ comment\nargument;";
     in_text = " // this is a text of / one * line */ comment\nargument;";
     TEST_GET_ARGUMENT_SUCCESS(in_text, ctx, Y_STR_ARG, "argument;", 8, ";");
     assert_null(buf);
@@ -313,13 +312,13 @@ test_arg(void **state)
     TEST_GET_ARGUMENT_SUCCESS("\"hello \t\n\t\t world!\"", ctx, Y_STR_ARG, "hello\n  world!", 14, "");
     free(buf);
 
-/// * In contrast to previous, the backslash-escaped tabs are expanded after trimming, so they are preserved */
+    /* In contrast to previous, the backslash-escaped tabs are expanded after trimming, so they are preserved */
     ctx->indent = 14;
     TEST_GET_ARGUMENT_SUCCESS("\"hello \\t\n\t\\t world!\"", ctx, Y_STR_ARG, "hello \t\n\t world!", 16, "");
     assert_ptr_equal(word, buf);
     free(buf);
 
-/// * Do not handle whitespaces after backslash-escaped newline as indentation */
+    /* Do not handle whitespaces after backslash-escaped newline as indentation */
     ctx->indent = 14;
     TEST_GET_ARGUMENT_SUCCESS("\"hello\\n\t\t world!\"", ctx, Y_STR_ARG, "hello\n\t\t world!", 15, "");
     assert_ptr_equal(word, buf);
@@ -1500,7 +1499,6 @@ test_any(enum ly_stmt kw)
     /* full content */
     in.current = "any {config true;description test;if-feature f;mandatory true;must 'expr';reference test;status current;when true;m:ext;} ...";
     assert_int_equal(LY_SUCCESS, parse_any(ctx, &in, kw, NULL, (struct lysp_node **)&any));
-    // CHECK_LYSP_NODE(NODE, DSC, EXTS, FLAGS, IFFEATURES, NAME, NEXT, TYPE, PARENT, REF, WHEN)
     uint16_t node_type = kw == LY_STMT_ANYDATA ? LYS_ANYDATA : LYS_ANYXML;
     uint16_t flags = LYS_CONFIG_W | LYS_STATUS_CURR | LYS_MAND_TRUE;
     CHECK_LYSP_NODE(any, "test", 1, flags, 1, "any", 0, node_type, 0, "test", 1);
