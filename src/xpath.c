@@ -133,8 +133,9 @@ lyxp_print_token(enum lyxp_token tok)
 static void
 print_expr_struct_debug(const struct lyxp_expr *exp)
 {
+#define MSG_BUFFER_SIZE 128
+    char tmp[MSG_BUFFER_SIZE];
     uint16_t i, j;
-    char tmp[128];
 
     if (!exp || (ly_ll < LY_LLDBG)) {
         return;
@@ -153,6 +154,7 @@ print_expr_struct_debug(const struct lyxp_expr *exp)
         }
         LOGDBG(LY_LDGXPATH, tmp);
     }
+#undef MSG_BUFFER_SIZE
 }
 
 #ifndef NDEBUG
@@ -1253,7 +1255,7 @@ set_scnode_new_in_ctx(struct lyxp_set *set)
 
     assert(set->type == LYXP_SET_SCNODE_SET);
 
-    ret_ctx = 3;
+    ret_ctx = LYXP_SET_SCNODE_NOTIN;
 retry:
     for (i = 0; i < set->used; ++i) {
         if (set->val.scnodes[i].in_ctx >= ret_ctx) {
@@ -1262,7 +1264,7 @@ retry:
         }
     }
     for (i = 0; i < set->used; ++i) {
-        if (set->val.scnodes[i].in_ctx == 1) {
+        if (set->val.scnodes[i].in_ctx == LYXP_SET_SCNODE_IN) {
             set->val.scnodes[i].in_ctx = ret_ctx;
         }
     }
@@ -1377,7 +1379,7 @@ set_assign_pos(struct lyxp_set *set, const struct lyd_node *root, enum lyxp_node
                 if (!tmp_node) {
                     LOGINT_RET(root->schema->module->ctx);
                 }
-            /* fallthrough */
+            /* fall through */
             case LYXP_NODE_ELEM:
             case LYXP_NODE_TEXT:
                 if (!tmp_node) {

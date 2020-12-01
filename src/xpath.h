@@ -223,6 +223,13 @@ struct lyxp_set {
         struct lyxp_set_scnode {
             struct lysc_node *scnode;
             enum lyxp_node_type type;
+
+#define LYXP_SET_SCNODE_TRAVERSED_IN            -2
+#define LYXP_SET_SCNODE_TRAVERSED_NOSTART_NOTIN -1
+#define LYXP_SET_SCNODE_TRAVERSED_NOTIN          0
+#define LYXP_SET_SCNODE_IN                       1
+#define LYXP_SET_SCNODE_IN_JUST_ADDED            2
+#define LYXP_SET_SCNODE_NOTIN                    3
             /* -2 - scnode not traversed, currently (the only node) in context;
              * -1 - scnode not traversed except for the eval start, not currently in the context;
              * 0  - scnode was traversed, but not currently in the context;
